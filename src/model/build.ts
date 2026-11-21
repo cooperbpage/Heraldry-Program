@@ -371,10 +371,10 @@ function emit(ctx: Ctx, g: StripGeo) {
   // a terminal volute's inner rim turns over to show a narrow return of the other face
   if (g.spiralStart >= 0) {
     const s0 = g.spiralStart + (L - g.spiralStart) * 0.12;
-    const s1 = L - (L - g.spiralStart) * 0.06;
+    const s1 = L - (L - g.spiralStart) * 0.3;
     const a = tr.at((s0 + s1) / 2);
     const inner = a.k >= 0 ? 1 : -1;
-    const w = 0.3;
+    const w = 0.22;
     const f = faceAt(g, (s0 + s1) / 2);
     ctx.pieces.push({
       id: `${strip.id}:rim`,

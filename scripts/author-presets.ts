@@ -38,108 +38,111 @@ function finish(name: string, strips: Strip[], palette = defaultPalette(), setti
 // Garter: red acanthus over layered white fans; broad red bands, open red scroll eyes.
 function garter(): Doc {
   const fans: Strip[] = [];
-  // broad white fans spreading sideways at mid-height, overlapping, tips split into pointed fingers
-  const fanDirs: [number, number, number, number][] = [
-    // angle(deg), length, width, bend
-    [-44, 150, 34, -0.18],
-    [-30, 178, 38, -0.14],
-    [-16, 196, 38, -0.08],
-    [-3, 200, 36, 0.0],
-    [14, 180, 36, 0.08],
-    [30, 160, 34, 0.14],
-    [46, 135, 32, 0.2],
+  // broad, many-ribbed white fans spreading on both sides of the helm, reaching past the red
+  const fanDirs: [number, number, number, number, number][] = [
+    // angle(deg), length, width, bend, root dy
+    [-62, 170, 40, -0.2, -8],
+    [-46, 215, 44, -0.16, -4],
+    [-30, 250, 46, -0.12, 0],
+    [-15, 262, 46, -0.06, 2],
+    [0, 255, 44, 0.02, 6],
+    [16, 232, 44, 0.08, 10],
+    [32, 200, 42, 0.14, 14],
+    [50, 160, 38, 0.2, 18],
   ];
-  for (const [deg, len, w, bend] of fanDirs) {
+  for (const [deg, len, w, bend, dy] of fanDirs) {
     const a = (deg * Math.PI) / 180;
-    const o: V = [512, 418];
+    const o: V = [512, 410 + dy];
     const d: V = [Math.cos(a), Math.sin(a)];
     const nrm: V = [-d[1], d[0]];
     const p1: V = [o[0] + d[0] * len, o[1] + d[1] * len];
     const c1: V = [o[0] + d[0] * len * 0.35, o[1] + d[1] * len * 0.35];
     const c2: V = [o[0] + d[0] * len * 0.7 + nrm[0] * len * bend, o[1] + d[1] * len * 0.7 + nrm[1] * len * bend];
-    fans.push(S([o, c1, c2, p1], W([0, w * 0.75], [0.35, w], [0.8, w * 0.95], [1, w * 0.7]), () => [
-      fold(0.1, 'L', 0.08, 20),
-      cl(0.7, 1, bend >= 0 ? 'L' : 'R', 0.6, 2, [1, 0.85, 0.7]),
+    fans.push(S([o, c1, c2, p1], W([0, w * 0.7], [0.35, w], [0.8, w * 0.95], [1, w * 0.75]), () => [
+      fold(0.08, 'L', 0.07, 20),
+      cl(0.72, 1, bend >= 0 ? 'L' : 'R', 0.55, 2, [1, 0.85, 0.7]),
       cl(0.8, 1, bend >= 0 ? 'R' : 'L', 0.45, 2, [1, 0.8]),
     ], -10));
   }
-  // upper sweep: rises over the fans into a leafy top and an open, leafy curl
-  const up: V[] = [[516, 388], [575, 350], [640, 300], [700, 294], [752, 290], [758, 342], [716, 352]];
-  const upper = S(up, W([0, 16], [0.3, 25], [0.65, 24], [1, 18]), (sp) => [
-    cl(0.12, 0.24, 'in', 0.8, 3, [1, 0.6, 0.4]),
-    cl(0.12, 0.24, 'out', 0.7, 2, [1, 0.6, 0.4]),
-    cl(0.32, 0.52, 'out', 1.3, 3, [1, 0.62, 0.45, 0.3]),
-    cl(0.36, 0.5, 'in', 0.8, 3, [1, 0.6, 0.4]),
-    vol(sp, 0.8, 15, 0.85),
-    cl(0.82, 0.94, 'out', 1.0, 3, [1, 0.6, 0.4]),
+  // upper band: a wide flat acanthus ribbon rising over the fans into a leafy top and an open scroll
+  const up: V[] = [[516, 392], [590, 352], [650, 296], [712, 290], [764, 286], [770, 340], [726, 350]];
+  const upper = S(up, W([0, 18], [0.18, 30], [0.4, 22], [0.62, 32], [1, 22]), (sp) => [
+    cl(0.14, 0.24, 'out', 0.8, 3, [1, 0.6, 0.4]),
+    cl(0.34, 0.52, 'out', 1.2, 3, [1, 0.62, 0.45, 0.3]),
+    cl(0.36, 0.5, 'in', 0.6, 2, [1, 0.6, 0.4]),
+    fold(0.72, 'R', 0.08, 35),
+    vol(sp, 0.8, 18, 0.8),
   ], 2);
-  // middle band: out across the fans, turning down at the right into the lower scroll's open eye
-  const mid: V[] = [[516, 418], [600, 410], [690, 392], [738, 424], [776, 452], [756, 510], [704, 502]];
-  const lowerBranch = S([[0, 0], [40, 10], [75, 26], [96, 56]], W([0, 15], [0.5, 18], [1, 12]), () => [
-    cl(0.5, 1, 'L', 1.2, 3, [1, 0.6, 0.4, 0.25]),
-    cl(0.6, 1, 'R', 0.8, 2, [1, 0.6, 0.4]),
+  // middle band: out over the fans and down into the lower scroll, lobed along both edges near the helm
+  const mid: V[] = [[516, 420], [610, 418], [700, 396], [748, 428], [786, 456], [766, 514], [714, 506]];
+  const lowerBranch = S([[0, 0], [40, 10], [75, 26], [96, 56]], W([0, 15], [0.5, 20], [1, 14]), () => [
+    cl(0.55, 1, 'L', 1.0, 3, [1, 0.6, 0.4, 0.25]),
   ]);
-  const middle = S(mid, W([0, 17], [0.2, 26], [0.55, 25], [1, 19]), (sp) => [
-    cl(0.16, 0.3, 'R', 1.0, 3, [1, 0.6, 0.4]),
-    cl(0.16, 0.3, 'L', 0.8, 3, [1, 0.6, 0.4]),
-    cl(0.42, 0.6, 'out', 1.35, 3, [1, 0.62, 0.42, 0.3]),
-    cl(0.44, 0.58, 'in', 0.8, 2, [1, 0.6, 0.4]),
+  const middle = S(mid, W([0, 22], [0.15, 34], [0.35, 26], [0.6, 32], [1, 22]), (sp) => [
+    cl(0.08, 0.26, 'L', 0.9, 3, [1, 0.7, 0.5, 0.3]),
+    cl(0.1, 0.24, 'R', 0.55, 2, [1, 0.6]),
+    cl(0.44, 0.6, 'out', 1.15, 3, [1, 0.62, 0.42, 0.3]),
     br(0.64, 'L', 40, 14, lowerBranch),
-    vol(sp, 0.8, 16, 0.95),
-    cl(0.82, 0.94, 'out', 1.0, 3, [1, 0.6, 0.4]),
+    fold(0.74, 'L', 0.08, 35),
+    vol(sp, 0.8, 18, 0.85),
   ], 1);
-  // broad lobed leaf lying across the lower fans just right of the helm
-  const leafBand = S([[520, 446], [570, 442], [620, 455], [665, 468]], W([0, 22], [0.4, 30], [1, 18]), () => [
-    cl(0.15, 0.42, 'L', 0.9, 3, [1, 0.7, 0.5, 0.3]),
-    cl(0.2, 0.4, 'R', 0.6, 2, [1, 0.6]),
-    cl(0.65, 0.95, 'L', 1.0, 3, [1, 0.65, 0.4]),
-    cl(0.7, 0.95, 'R', 0.7, 2, [1, 0.6, 0.4]),
-  ], 3);
-  return finish('Garter', [...fans, middle, upper, leafBand], { ...defaultPalette(), outer: '#c4262a', lining: '#eeeae2' });
+  return finish('Garter', [...fans, middle, upper], { ...defaultPalette(), outer: '#c4262a', lining: '#eeeae2' });
 }
 
 // ---------------------------------------------------------------------------
 // Stirling: heavy upright red lobes rising from gathered grey cloth; grey curls at the top.
 function stirling(): Doc {
-  const pal = { ...defaultPalette(), outer: '#a3161c', lining: '#b8b3ab', paper: '#f1e9da' };
-  const grey: Strip[] = [];
-  // a gathered body of grey cloth behind the helm, rising into open curls at the top
-  const g: [V[], number, number | null][] = [
-    [[[508, 392], [520, 320], [540, 250], [592, 226], [632, 208], [628, 160], [596, 170]], 60, 0.8],
-    [[[512, 398], [580, 340], [640, 270], [690, 262], [732, 256], [742, 214], [712, 206]], 62, 0.8],
-    [[[514, 410], [600, 390], [660, 360], [700, 330]], 64, null],
-    [[[514, 424], [590, 420], [640, 440], [680, 470]], 60, null],
-    [[[512, 440], [560, 470], [600, 500], [620, 540]], 52, null],
+  const pal = { ...defaultPalette(), outer: '#a3161c', lining: '#a8a29a', paper: '#f1e9da' };
+  const strips: Strip[] = [];
+  // dense grey cloth gathered at the helm's base and shoulders: short, broad, overlapping folds
+  const gathered: [number, number, number][] = [
+    // angle, length, width
+    [-74, 170, 60], [-56, 200, 66], [-38, 215, 68], [-20, 220, 68], [-2, 215, 66], [16, 200, 64], [34, 180, 60], [52, 160, 56], [70, 140, 50],
   ];
-  for (const [sp, w, vt] of g)
-    grey.push(S(sp, W([0, w * 0.8], [0.35, w], [0.8, w * 0.8], [1, w * 0.55]), (s) => [
+  for (const [deg, len, w] of gathered) {
+    const a = (deg * Math.PI) / 180;
+    const o: V = [516, 430];
+    const d: V = [Math.cos(a), Math.sin(a)];
+    const nrm: V = [-d[1], d[0]];
+    const p1: V = [o[0] + d[0] * len, o[1] + d[1] * len];
+    strips.push(S([o, [o[0] + d[0] * len * 0.35, o[1] + d[1] * len * 0.35], [p1[0] - d[0] * len * 0.3 + nrm[0] * 12, p1[1] - d[1] * len * 0.3 + nrm[1] * 12], p1], W([0, w * 0.85], [0.5, w], [1, w * 0.6]), () => [
+      fold(0.06, 'R', 0.06, 10),
+      cl(0.76, 1, 'L', 0.5, 2, [1, 0.8, 0.6]),
+    ], -12));
+  }
+  // paler grey rising behind the red into small loose turnovers at the top corners
+  const curls: [V[], number][] = [
+    [[[510, 392], [528, 320], [556, 250], [598, 230], [632, 214], [632, 182], [606, 186]], 40],
+    [[[514, 400], [590, 340], [650, 286], [700, 274], [736, 266], [744, 236], [720, 232]], 42],
+  ];
+  for (const [sp, w] of curls)
+    strips.push(S(sp, W([0, w * 0.8], [0.35, w], [0.8, w * 0.8], [1, w * 0.55]), (s) => [
       fold(0.08, 'R', 0.08, 15),
-      cl(0.55, 0.72, 'out', 0.6, 2, [1, 0.75, 0.55]),
-      ...(vt ? [vol(s, vt, 12, 0.95)] : [cl(0.82, 1, 'out', 0.6, 2, [1, 0.75, 0.55])]),
+      cl(0.55, 0.72, 'out', 0.45, 2, [1, 0.75, 0.55]),
+      vol(s, 0.84, 8, 0.7),
     ], -10));
-  // red stem rising close beside the helm, its lobes stacked upward
-  const r1Sp: V[] = [[516, 384], [566, 350], [602, 300], [612, 234]];
-  const r1 = S(r1Sp, W([0, 22], [0.3, 32], [0.7, 28], [1, 18]), () => [
-    cl(0.3, 0.5, 'out', 1.1, 3, [1, 0.62, 0.45, 0.3]),
-    cl(0.6, 0.74, 'in', 0.8, 2, [1, 0.6, 0.4]),
-    cl(0.84, 1, 'out', 0.9, 3, [1, 0.6, 0.4]),
-  ], 3);
-  // the great upright mass at the right: out, then turning up with heavy stacked lobes
-  const r2Sp: V[] = [[516, 404], [610, 408], [680, 392], [702, 340], [718, 300], [716, 260], [700, 228]];
-  const r2 = S(r2Sp, W([0, 24], [0.3, 34], [0.7, 32], [1, 20]), () => [
-    cl(0.2, 0.3, 'R', 0.8, 2, [1, 0.6, 0.4]),
-    cl(0.44, 0.6, 'out', 1.2, 3, [1, 0.62, 0.45, 0.3]),
-    cl(0.68, 0.8, 'in', 0.9, 3, [1, 0.6, 0.4]),
-    cl(0.88, 1, 'out', 1.0, 3, [1, 0.6, 0.4]),
-  ], 3);
-  // lower hook descending beside the crown into a leafy scroll
-  const lowSp: V[] = [[516, 438], [580, 452], [636, 462], [660, 506], [680, 548], [648, 580], [622, 556]];
-  const low = S(lowSp, W([0, 22], [0.3, 32], [0.7, 30], [1, 22]), (sp) => [
-    cl(0.3, 0.48, 'out', 1.0, 3, [1, 0.6, 0.4, 0.3]),
-    vol(sp, 0.8, 12, 0.95),
-    cl(0.83, 0.93, 'out', 0.7, 2, [1, 0.6, 0.4]),
-  ], 2);
-  return finish('Stirling', [...grey, r1, r2, low], pal);
+  // red stem rising close beside the helm, its heavy lobes stacked upward
+  const r1Sp: V[] = [[516, 388], [566, 350], [602, 300], [612, 230]];
+  strips.push(S(r1Sp, W([0, 22], [0.3, 34], [0.7, 30], [1, 20]), () => [
+    cl(0.3, 0.5, 'out', 0.83, 3, [1, 0.62, 0.45, 0.3]),
+    cl(0.6, 0.74, 'in', 0.6, 2, [1, 0.6, 0.4]),
+    cl(0.84, 1, 'out', 0.75, 3, [1, 0.6, 0.4]),
+  ], 3));
+  // the outer upright mass: rises at once, heavy clustered lobes making a rounded, lobed edge
+  const r2Sp: V[] = [[520, 408], [600, 400], [650, 380], [670, 330], [688, 280], [700, 250], [690, 214]];
+  strips.push(S(r2Sp, W([0, 24], [0.3, 34], [0.7, 32], [1, 20]), () => [
+    cl(0.3, 0.46, 'out', 0.83, 3, [1, 0.62, 0.45, 0.3]),
+    cl(0.56, 0.72, 'out', 0.9, 3, [1, 0.62, 0.45, 0.3]),
+    cl(0.6, 0.7, 'in', 0.52, 2, [1, 0.6, 0.4]),
+    cl(0.86, 1, 'out', 0.75, 3, [1, 0.6, 0.4]),
+  ], 3));
+  // lower: a short C-scroll beside the gathered cloth, with a leaf cluster
+  const lowSp: V[] = [[520, 446], [584, 450], [630, 470], [648, 506], [662, 536], [636, 562], [614, 542]];
+  strips.push(S(lowSp, W([0, 22], [0.3, 32], [0.7, 30], [1, 22]), (sp) => [
+    cl(0.28, 0.48, 'out', 0.83, 3, [1, 0.6, 0.4, 0.3]),
+    vol(sp, 0.8, 10, 0.85),
+  ], 2));
+  return finish('Stirling', strips, pal);
 }
 
 const out = process.argv[2] || 'src/presets';

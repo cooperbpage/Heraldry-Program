@@ -19,7 +19,7 @@ const hex = (h: string): RGB => {
 const mix = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 const css = (c: RGB) => '#' + c.map((x) => Math.round(clamp(x, 0, 255)).toString(16).padStart(2, '0')).join('');
 
-const LEVELS = 56;
+const LEVELS = 72;
 const BMIN = 0.12, BMAX = 1.85;
 
 function ramp(mid: RGB, ink: RGB, isLight: boolean) {
