@@ -1,0 +1,23 @@
+{
+  "intro": "Each round renders the hand-authored presets with Playwright and places them beside their references. An independent critic, who has not seen the code, ranks the five worst concrete defects; the top three are fixed before the next round.",
+  "rounds": [
+    {
+      "id": "stages",
+      "title": "Stages 1–2 · volute, stem, fold",
+      "note": "Stage 1: a single volute with tangent entry, curvature rising steadily as it winds in (checked numerically), and an open eye. Stage 2: one stem with one recursive cluster (lobes splitting into unequal, forward-hooking leaflets), 78% of the stem left bare, and a turnover: the strip narrows, an oblique crease crosses it, the red lip rolls over in front and the lining shows beyond.",
+      "images": [
+        { "src": "proofs/stages/01-volute.png", "caption": "Stage 1 · volute" },
+        { "src": "proofs/stages/02-stem.png", "caption": "Stage 2 · stem, cluster and turnover" },
+        { "src": "proofs/stages/02-fold-detail.png", "caption": "Stage 2 · turnover detail" }
+      ]
+    },
+    {
+      "id": "round-00",
+      "title": "Round 0 · first hand-authored presets (before review)",
+      "images": [
+        { "src": "proofs/round-00/garter.png", "caption": "Garter · reference and generated preset" },
+        { "src": "proofs/round-00/stirling.png", "caption": "Stirling · reference and generated preset" }
+      ]
+    }
+  ]
+}

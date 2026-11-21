@@ -246,8 +246,9 @@ export function buildStrip(ctx: Ctx, strip: Strip, frame: Frame, baseFace: 0 | 1
       }
     }
     for (const to of turnovers) {
-      const ds = (s - to.t * Lb) / Math.max(4, (to.length * Lb) / 2);
-      if (Math.abs(ds) < 1) w *= 1 - 0.62 * Math.pow(Math.cos((ds * Math.PI) / 2), 2);
+      // foreshortening: narrowest just before the crease, recovering beyond it
+      const ds = (s - to.t * Lb + to.length * Lb * 0.12) / Math.max(4, (to.length * Lb) / 2);
+      if (Math.abs(ds) < 1) w *= 1 - 0.45 * Math.pow(Math.cos((ds * Math.PI) / 2), 2);
     }
     hL[i] = hR[i] = Math.max(0.6, w / 2);
   }
@@ -344,8 +345,8 @@ function emit(ctx: Ctx, g: StripGeo) {
       // the lip of the rolling edge, in the face before the crease, passes in front
       const c = g.creases[k - 1];
       const ve = c.ev.edge === 'L' ? 1 : -1;
-      const lipLen = Math.max(8, interpKnots(strip.width, c.s / g.Lb) * 0.75);
-      const w = 0.55;
+      const lipLen = Math.max(12, interpKnots(strip.width, c.s / g.Lb) * 1.7);
+      const w = 0.85;
       lips.push({
         ...p,
         id: `${strip.id}:lip${k}`,
@@ -713,13 +714,25 @@ function leaf(ctx: Ctx, R: Rng, sp: LeafSpec, stripId: string, eventId: string, 
     const k = parts.length;
     const convexSg = concaveL ? -1 : 1;
     const groups: Piece[][] = [];
+    // attendants on the convex flank (the larger cuts) and smaller ones on the concave flank,
+    // staggered so the edge reads as deeply serrated rather than as separate ribbons
+    const specs: { u: number; side: number; rel: number }[] = [];
     for (let j = 0; j < k; j++) {
       const rel = clamp(parts[j] / lead, 0.15, 0.95);
-      const u = lerp(0.24, 0.62, k === 1 ? 0.5 : j / (k - 1)) + R.range(-0.04, 0.04);
+      specs.push({ u: lerp(0.18, 0.64, k === 1 ? 0.5 : j / (k - 1)) + R.range(-0.04, 0.04), side: convexSg, rel });
+    }
+    const nc = Math.max(1, k - 1);
+    for (let j = 0; j < nc; j++) {
+      const rel = clamp((parts[Math.min(parts.length - 1, j + 1)] / lead) * 0.75, 0.12, 0.7);
+      specs.push({ u: lerp(0.3, 0.7, nc === 1 ? 0.5 : j / (nc - 1)) + R.range(-0.03, 0.03), side: -convexSg, rel });
+    }
+    specs.sort((x, y) => x.u - y.u);
+    for (let j = 0; j < specs.length; j++) {
+      const { u, side, rel } = specs[j];
       const sb = u * tr.L;
-      const side = j === k - 1 && k >= 3 && R.chance(0.4) ? -convexSg : convexSg;
       const lh = hAt(side > 0 ? hL : hR, tr, sb);
       const subSplit = sp.split.slice(0, Math.max(2, sp.split.length - 1)).map((x, i) => (i === 0 ? x : x * R.range(0.75, 1.1)));
+      const convex = side === convexSg;
       groups.push(
         leaf(ctx, R, {
           parent: tr,
@@ -727,10 +740,10 @@ function leaf(ctx: Ctx, R: Rng, sp: LeafSpec, stripId: string, eventId: string, 
           pHR: hR,
           gaps,
           sBase: sb,
-          baseHalf: Math.max(0.8, lh * lerp(0.75, 1.05, rel)),
+          baseHalf: Math.max(0.8, lh * lerp(0.8, 1.15, rel)),
           sg: side,
-          length: Ll * rel * lerp(0.68, 0.9, R.next()) * (side === convexSg ? 1 : 0.6),
-          alpha: (lerp(42, 72, R.next()) * Math.PI) / 180,
+          length: Ll * rel * lerp(0.7, 0.92, R.next()) * (convex ? 1 : 0.7),
+          alpha: (lerp(convex ? 50 : 35, convex ? 80 : 55, R.next()) * Math.PI) / 180,
           depth: sp.depth - 1,
           split: subSplit,
           face: sp.face,

@@ -32,11 +32,10 @@ export function stageStem(): Doc {
   const s: Strip = {
     id: 'stem',
     spine,
-    width: [{ t: 0, w: 36 }, { t: 0.2, w: 62 }, { t: 0.6, w: 50 }, { t: 1, w: 18 }],
+    width: [{ t: 0, w: 26 }, { t: 0.2, w: 40 }, { t: 0.6, w: 36 }, { t: 1, w: 22 }],
     events: [
-      { kind: 'turnover', id: 'f1', t: 0.42, length: 0.12, edge: 'L', crease: 38 },
-      { kind: 'cluster', id: 'c1', t0: 0.6, t1: 0.86, side: 'L', size: 1.1, depth: 3, split: [1, 0.55, 0.35, 0.22] },
-      { kind: 'cluster', id: 'c2', t0: 0.9, t1: 1, side: 'R', size: 0.8, depth: 2, split: [1, 0.5, 0.3] },
+      { kind: 'cluster', id: 'c1', t0: 0.3, t1: 0.52, side: 'L', size: 1.0, depth: 3, split: [1, 0.6, 0.42, 0.28] },
+      { kind: 'turnover', id: 'f1', t: 0.7, length: 0.12, edge: 'R', crease: 40 },
     ],
   };
   doc.strips.push(s);

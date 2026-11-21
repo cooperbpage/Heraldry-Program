@@ -1,2 +1,4 @@
-const app = document.getElementById('app')!;
-app.innerHTML = `<section class="prose"><p>Setup complete. Stage 1 (a single volute) is next.</p></section>`;
+import './style.css';
+import { startApp } from './ui/app';
+
+startApp(document.getElementById('app')!);

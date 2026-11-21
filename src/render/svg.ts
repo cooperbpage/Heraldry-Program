@@ -101,14 +101,14 @@ function brightness(p: Piece, s: number, v: number) {
   const nx = -a.ty, ny = a.tx; // +v direction
   const av = Math.abs(v);
   // channel: surface tilts toward the midline; at the rim the edge rolls over and faces outward
-  const slope = 1.05 * v * (1 - 2.6 * smooth(0.84, 1.0, av)) + (p.kind === 'leaf' ? 0.25 * v : 0);
+  const slope = 0.8 * v * (1 - 2.8 * smooth(0.86, 1.0, av)) + (p.kind === 'leaf' ? 0.25 * v : 0);
   let gx = -slope * nx, gy = -slope * ny, gz = 1;
   const gl = Math.hypot(gx, gy, gz);
   gx /= gl;
   gy /= gl;
   gz /= gl;
   const d = Math.max(0, gx * LG[0] + gy * LG[1] + gz * LG[2]);
-  let b = 0.2 + 1.3 * d + 0.32 * Math.pow(d, 14);
+  let b = 0.25 + 1.22 * d + 0.14 * Math.pow(d, 18);
   // midrib groove
   if (p.midrib) b -= 0.28 * Math.exp(-((v / 0.085) ** 2));
   const s0 = p.s0(v), s1 = p.s1(v);
@@ -185,6 +185,8 @@ function outlineOf(p: Piece, m: PieceMesh) {
 
 export interface RenderResult {
   svg: string;
+  /** the same content without the outer <svg> element, for embedding */
+  inner: string;
   built: Built;
 }
 
@@ -296,10 +298,10 @@ export function renderSVG(doc: Doc, opts: RenderOpts, built?: Built): RenderResu
   });
   const bg = opts.background !== false ? `<rect width="${SHEET.w}" height="${SHEET.h}" fill="${pal.paper}"/>` : '';
   const frame = opts.noFrame ? '' : frameArt(pal.ink);
-  const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SHEET.w} ${SHEET.h}" width="${SHEET.w}" height="${SHEET.h}">` +
-    `<defs><style>#mantling path[class]{stroke-width:.55px;stroke-linejoin:round}${[...used.values()].join('')}</style>${defs.join('')}</defs>${bg}<g id="mantling">${body.join('')}</g>${frame}</svg>`;
-  return { svg, built: b };
+  const inner =
+    `<defs><style>#mantling path[class]{stroke-width:.55px;stroke-linejoin:round}${[...used.values()].join('')}</style>${defs.join('')}</defs>${bg}<g id="mantling">${body.join('')}</g>${frame}`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SHEET.w} ${SHEET.h}" width="${SHEET.w}" height="${SHEET.h}">${inner}</svg>`;
+  return { svg, inner, built: b };
 }
 
 function midrib(p: Piece, ink: string, op: number) {
@@ -311,7 +313,7 @@ function midrib(p: Piece, ink: string, op: number) {
   for (let i = 0; i <= N; i++) {
     const u = lerp(0.04, p.kind === 'leaf' ? 0.8 : 0.9, i / N);
     const s = s0 + L * u;
-    const w = 0.045 * Math.pow(Math.sin((Math.PI * i) / N), 0.6);
+    const w = 0.045 * Math.pow(Math.max(0, Math.sin((Math.PI * i) / N)), 0.6);
     top.push(P(p.track, p.hL, p.hR, s, w));
     bot.push(P(p.track, p.hL, p.hR, s, -w));
   }

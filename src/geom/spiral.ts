@@ -35,7 +35,7 @@ export function makeSpiral(P: V, T: V, C: V, eyeR: number, turns: number, tipHal
   const r1 = Math.min(r0 * 0.6, eyeR + tipHalf);
   const rho0 = Math.log(r0), rho1 = Math.log(Math.max(0.5, r1));
   const dr = rho1 - rho0; // negative
-  const m0 = clamp((slope0 * Phi) / dr, 0, 3);
+  const m0 = clamp((slope0 * Phi) / dr, 0, 6);
   const m1 = 1;
   const g = (u: number) => {
     const u2 = u * u, u3 = u2 * u;

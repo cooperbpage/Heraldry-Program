@@ -113,7 +113,7 @@ function reparam(pts: V[], a: number, c: [V, V, V, V], u: number[]) {
   });
 }
 
-function fitRec(pts: V[], a: number, b: number, t1: V, t2: V, err: number, out: [V, V, V, V][]) {
+export function fitRec(pts: V[], a: number, b: number, t1: V, t2: V, err: number, out: [V, V, V, V][]) {
   if (b - a < 2) {
     const d = dist(pts[a], pts[b]) / 3;
     out.push([pts[a], add(pts[a], mul(t1, d)), add(pts[b], mul(t2, d)), pts[b]]);
@@ -158,19 +158,156 @@ function endTangent(pts: V[], fromStart: boolean): V {
   return norm(sub(pts[i], pts[pts.length - 1]));
 }
 
-/** Fit the fewest cubic segments within `err`, then enforce G2 at internal joins. */
+/**
+ * Fit the fewest cubic segments within `err`. One segment is tried first (Schneider-style:
+ * chord-length parameters, least squares, Newton reparameterisation). If more are needed, a
+ * least-squares uniform cubic B-spline is fitted with a growing number of spans and converted
+ * to Bézier segments, which makes every internal join exactly G2 (in fact C2).
+ */
 export function fitSpine(pts: V[], err: number): Spine {
   if (pts.length < 2) return [];
   if (pts.length === 2) {
     const d = sub(pts[1], pts[0]);
     return [pts[0], add(pts[0], mul(d, 1 / 3)), add(pts[0], mul(d, 2 / 3)), pts[1]];
   }
-  const out: [V, V, V, V][] = [];
-  fitRec(pts, 0, pts.length - 1, endTangent(pts, true), endTangent(pts, false), err, out);
-  const sp: Spine = [out[0][0]];
-  for (const c of out) sp.push(c[1], c[2], c[3]);
-  enforceG2(sp);
+  const t1 = endTangent(pts, true), t2 = endTangent(pts, false);
+  let u = chordParams(pts, 0, pts.length - 1);
+  let c = generate(pts, 0, pts.length - 1, u, t1, t2);
+  for (let k = 0; k < 6; k++) {
+    u = reparam(pts, 0, c, u);
+    c = generate(pts, 0, pts.length - 1, u, t1, t2);
+  }
+  if (maxError(pts, 0, pts.length - 1, c, u).mx < err) return [c[0], c[1], c[2], c[3]];
+  for (let n = 2; n <= 40; n++) {
+    const sp = fitBSpline(pts, n);
+    if (splineError(pts, sp) < err || n === 40) return sp;
+  }
+  return [c[0], c[1], c[2], c[3]];
+}
+
+function splineError(pts: V[], sp: Spine) {
+  // distance from each data point to the nearest of a dense sampling of the curve
+  const n = segCount(sp);
+  const dense: V[] = [];
+  for (let i = 0; i < n; i++) for (let k = 0; k <= 24; k++) dense.push(bez(seg(sp, i), k / 24));
+  let mx = 0, j = 0;
+  for (const p of pts) {
+    // monotone walk keeps this linear
+    let best = Infinity, bj = j;
+    for (let q = Math.max(0, j - 30); q < Math.min(dense.length, j + 60); q++) {
+      const d = dist(p, dense[q]);
+      if (d < best) {
+        best = d;
+        bj = q;
+      }
+    }
+    j = bj;
+    if (best > mx) mx = best;
+  }
+  return mx;
+}
+
+/** Least-squares uniform cubic B-spline with n spans, interpolating both ends; returned as Bézier segments. */
+function fitBSpline(pts: V[], n: number): Spine {
+  const D0 = pts[0], Dn = pts[pts.length - 1];
+  let u = chordParams(pts, 0, pts.length - 1).map((x) => x * n);
+  let P: V[] = [];
+  for (let iter = 0; iter < 3; iter++) {
+    const m = n + 1;
+    const A: number[][] = Array.from({ length: m }, () => new Array(m).fill(0));
+    const bx = new Array(m).fill(0), by = new Array(m).fill(0);
+    for (let j = 0; j < pts.length; j++) {
+      const span = Math.min(n - 1, Math.floor(u[j]));
+      const t = u[j] - span;
+      const N = [(1 - t) ** 3 / 6, (3 * t ** 3 - 6 * t * t + 4) / 6, (-3 * t ** 3 + 3 * t * t + 3 * t + 1) / 6, t ** 3 / 6];
+      // control indices span-1 .. span+2, with phantoms -1 and n+1 eliminated by the end constraints
+      const coef = new Map<number, number>();
+      let cx = 0, cy = 0;
+      const addC = (k: number, w: number) => coef.set(k, (coef.get(k) ?? 0) + w);
+      for (let q = 0; q < 4; q++) {
+        const k = span - 1 + q;
+        const w = N[q];
+        if (k === -1) {
+          // P(-1) = 6 D0 - 4 P0 - P1
+          cx += 6 * D0[0] * w;
+          cy += 6 * D0[1] * w;
+          addC(0, -4 * w);
+          addC(1, -w);
+        } else if (k === n + 1) {
+          cx += 6 * Dn[0] * w;
+          cy += 6 * Dn[1] * w;
+          addC(n, -4 * w);
+          addC(n - 1, -w);
+        } else addC(k, w);
+      }
+      const rx = pts[j][0] - cx, ry = pts[j][1] - cy;
+      for (const [a, wa] of coef) {
+        bx[a] += wa * rx;
+        by[a] += wa * ry;
+        for (const [b, wb] of coef) A[a][b] += wa * wb;
+      }
+    }
+    // a whisper of smoothing keeps sparse spans well conditioned
+    const lam = 1e-4 * pts.length;
+    for (let k = 1; k < m - 1; k++) {
+      const st = [k - 1, k, k + 1], w = [1, -2, 1];
+      for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) A[st[a]][st[b]] += lam * w[a] * w[b];
+    }
+    const xs = solve(A.map((r) => r.slice()), bx), ys = solve(A, by);
+    P = xs.map((x, i) => [x, ys[i]] as V);
+    // reparameterise by projection onto the new curve
+    const sp = toBezier(P, D0, Dn);
+    u = u.map((uu, j) => {
+      const span = Math.min(n - 1, Math.floor(uu));
+      const c = seg(sp, span);
+      const t = uu - span;
+      const q = bez(c, t), q1 = bez1(c, t), q2 = bez2(c, t);
+      const num = dot(sub(q, pts[j]), q1);
+      const den = dot(q1, q1) + dot(sub(q, pts[j]), q2);
+      const nt = Math.abs(den) > 1e-9 ? t - num / den : t;
+      return Math.min(n, Math.max(0, span + nt));
+    });
+    for (let j = 1; j < u.length; j++) if (u[j] < u[j - 1]) u[j] = u[j - 1];
+  }
+  return toBezier(P, D0, Dn);
+}
+
+function toBezier(P: V[], D0: V, Dn: V): Spine {
+  const n = P.length - 1;
+  const at = (k: number): V => {
+    if (k === -1) return sub(sub(mul(D0, 6), mul(P[0], 4)), P[1]);
+    if (k === n + 1) return sub(sub(mul(Dn, 6), mul(P[n], 4)), P[n - 1]);
+    return P[k];
+  };
+  const sp: Spine = [D0];
+  for (let i = 0; i < n; i++) {
+    const a = at(i - 1), b = at(i), c = at(i + 1), d = at(i + 2);
+    sp.push(mul(add(mul(b, 2), c), 1 / 3), mul(add(b, mul(c, 2)), 1 / 3), i === n - 1 ? Dn : mul(add(add(b, mul(c, 4)), d), 1 / 6));
+    void a;
+  }
   return sp;
+}
+
+function solve(A: number[][], b: number[]): number[] {
+  const n = b.length;
+  const M = A.map((r, i) => [...r, b[i]]);
+  for (let c = 0; c < n; c++) {
+    let p = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    [M[c], M[p]] = [M[p], M[c]];
+    const v = M[c][c] || 1e-12;
+    for (let r = c + 1; r < n; r++) {
+      const f = M[r][c] / v;
+      if (f) for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k];
+    }
+  }
+  const x = new Array(n).fill(0);
+  for (let r = n - 1; r >= 0; r--) {
+    let s = M[r][n];
+    for (let k = r + 1; k < n; k++) s -= M[r][k] * x[k];
+    x[r] = s / (M[r][r] || 1e-12);
+  }
+  return x;
 }
 
 /**

@@ -6,10 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check": "esbuild scripts/geometry-checks.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/checks.mjs --log-level=warning && node node_modules/.cache/checks.mjs",
+    "presets": "esbuild scripts/author-presets.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/author.mjs --log-level=warning && node node_modules/.cache/author.mjs",
+    "proofs": "node scripts/proof-round.mjs"
   },
   "devDependencies": {
     "typescript": "~5.6.3",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "esbuild": "^0.21.5"
   }
 }

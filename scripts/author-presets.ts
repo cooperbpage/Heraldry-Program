@@ -84,8 +84,8 @@ function garter(): Doc {
   ], 1);
   // broad lobed leaf lying across the fans just right of the helm
   const leafBand = S([[520, 446], [565, 440], [610, 452], [650, 462]], W([0, 24], [0.4, 32], [1, 18]), () => [
-    cl(0.15, 0.55, 'L', 0.75, 3, [1, 0.7, 0.5, 0.3]),
-    cl(0.6, 1, 'L', 0.9, 3, [1, 0.65, 0.4]),
+    cl(0.18, 0.46, 'L', 0.8, 3, [1, 0.7, 0.5, 0.3]),
+    cl(0.7, 1, 'L', 0.9, 3, [1, 0.65, 0.4]),
   ], 3);
   return finish('Garter', [...fans, middle, upper, leafBand]);
 }
