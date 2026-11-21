@@ -12,12 +12,13 @@ export function emptyDoc(name = 'Untitled'): Doc {
 
 /** A default width profile: narrow root, swell, long taper. */
 export function defaultWidth(L: number): WidthKnot[] {
-  const w = clamp(L * 0.07, 22, 52);
+  const w = clamp(L * 0.09, 26, 40);
   return [
-    { t: 0, w: w * 0.65 },
-    { t: 0.22, w: w * 1.08 },
-    { t: 0.6, w: w * 0.85 },
-    { t: 1, w: w * 0.35 },
+    { t: 0, w: w * 0.7 },
+    { t: 0.2, w: w * 1.1 },
+    { t: 0.45, w: w * 0.85 },
+    { t: 0.7, w: w * 1.0 },
+    { t: 1, w: w * 0.7 },
   ];
 }
 

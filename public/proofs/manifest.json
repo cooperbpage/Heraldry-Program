@@ -1,23 +1,130 @@
 {
-  "intro": "Each round renders the hand-authored presets with Playwright and places them beside their references. An independent critic, who has not seen the code, ranks the five worst concrete defects; the top three are fixed before the next round.",
-  "rounds": [
+ "intro": "Each round renders the hand-authored presets with Playwright and places them beside their references. An independent critic, who has not seen the code, ranks the five worst concrete defects; the top three are fixed before the next round.",
+ "rounds": [
+  {
+   "id": "stages",
+   "title": "Stages 1\u20132 \u00b7 volute, stem, fold",
+   "note": "Stage 1: a single volute with tangent entry, curvature rising steadily as it winds in (checked numerically), and an open eye. Stage 2: one stem with one recursive cluster (lobes splitting into unequal, forward-hooking leaflets), 78% of the stem left bare, and a turnover: the strip narrows, an oblique crease crosses it, the red lip rolls over in front and the lining shows beyond.",
+   "images": [
     {
-      "id": "stages",
-      "title": "Stages 1–2 · volute, stem, fold",
-      "note": "Stage 1: a single volute with tangent entry, curvature rising steadily as it winds in (checked numerically), and an open eye. Stage 2: one stem with one recursive cluster (lobes splitting into unequal, forward-hooking leaflets), 78% of the stem left bare, and a turnover: the strip narrows, an oblique crease crosses it, the red lip rolls over in front and the lining shows beyond.",
-      "images": [
-        { "src": "proofs/stages/01-volute.png", "caption": "Stage 1 · volute" },
-        { "src": "proofs/stages/02-stem.png", "caption": "Stage 2 · stem, cluster and turnover" },
-        { "src": "proofs/stages/02-fold-detail.png", "caption": "Stage 2 · turnover detail" }
-      ]
+     "src": "proofs/stages/01-volute.png",
+     "caption": "Stage 1 \u00b7 volute"
     },
     {
-      "id": "round-00",
-      "title": "Round 0 · first hand-authored presets (before review)",
-      "images": [
-        { "src": "proofs/round-00/garter.png", "caption": "Garter · reference and generated preset" },
-        { "src": "proofs/round-00/stirling.png", "caption": "Stirling · reference and generated preset" }
-      ]
+     "src": "proofs/stages/02-stem.png",
+     "caption": "Stage 2 \u00b7 stem, cluster and turnover"
+    },
+    {
+     "src": "proofs/stages/02-fold-detail.png",
+     "caption": "Stage 2 \u00b7 turnover detail"
     }
-  ]
+   ]
+  },
+  {
+   "id": "round-00",
+   "title": "Round 0 \u00b7 first hand-authored presets (before review)",
+   "images": [
+    {
+     "src": "proofs/round-00/garter.png",
+     "caption": "Garter \u00b7 reference and generated preset"
+    },
+    {
+     "src": "proofs/round-00/stirling.png",
+     "caption": "Stirling \u00b7 reference and generated preset"
+    }
+   ]
+  },
+  {
+   "id": "round-01",
+   "title": "Round 1 \u00b7 reviewed",
+   "images": [
+    {
+     "src": "proofs/round-01/garter.png",
+     "caption": "Garter \u00b7 reference and generated preset (round-01)"
+    },
+    {
+     "src": "proofs/round-01/stirling.png",
+     "caption": "Stirling \u00b7 reference and generated preset (round-01)"
+    }
+   ],
+   "critique": [
+    "Garter: the red bands are bare, even-width tubes ending in tight snail spirals, like tentacles; in the reference every band is a flat acanthus leaf with lobes along its length and open leafy curls.",
+    "Garter: the white fans are thin upright stalks with crumpled tops; the reference has broad, layered fans spreading sideways at mid-height.",
+    "Stirling: a flat, wide starburst of long horizontal blades instead of a compact upright mass of stacked heavy lobes.",
+    "Stirling: no gathered grey cloth behind the helm; the top curls are smooth ram's-horn spirals.",
+    "Both: leaf tips are crumpled frills; no band twists to show its lining; shading is a stepped gradient that ignores the turns."
+   ],
+   "fixes": [
+    "Garter bands narrowed and made leafy on both edges over shared intervals (the 40% bare rule counts overlaps once); fans broadened and turned sideways.",
+    "Stirling recomposed as a compact upright mass over a gathered grey body.",
+    "Engine: leaflets too small to read as fingers are dropped (no frills); strips shaded flatter; the inside of each turn and the underside of each curl now darken (curvature-aware shading)."
+   ]
+  },
+  {
+   "id": "round-02",
+   "title": "Round 2 \u00b7 reviewed",
+   "images": [
+    {
+     "src": "proofs/round-02/garter.png",
+     "caption": "Garter \u00b7 reference and generated preset (round-02)"
+    },
+    {
+     "src": "proofs/round-02/stirling.png",
+     "caption": "Stirling \u00b7 reference and generated preset (round-02)"
+    }
+   ],
+   "critique": [
+    "Garter: the white lining fans are almost missing; the whole mantling reads as solid red.",
+    "Garter: the red bands are thin round hoses laid over a separate clump of leaves, not wide flat lobed ribbons.",
+    "Stirling: no gathered grey cloth at the helm; the grey stands up as tall smooth fans and big snail volutes.",
+    "Stirling: long red horns stick out sideways, giving a spiky diamond outline; lower tubes end in small tufts.",
+    "Both: leaf tips are single pointed blades; shading shows stepped bands."
+   ],
+   "fixes": [
+    "Garter: eight broad, many-ribbed white fans reaching past the red; the separate leaf clump removed and its lobes grown from the bands; bands widened with swells.",
+    "Stirling: nine short, broad grey folds gathered at the helm's base and shoulders, paler curls kept small; the sideways horns pulled upright.",
+    "Engine: volute inner-rim returns made narrower and stopped short of the eye; finer shading levels (72)."
+   ]
+  },
+  {
+   "id": "round-03",
+   "title": "Round 3 \u00b7 reviewed",
+   "images": [
+    {
+     "src": "proofs/round-03/garter.png",
+     "caption": "Garter \u00b7 reference and generated preset (round-03)"
+    },
+    {
+     "src": "proofs/round-03/stirling.png",
+     "caption": "Stirling \u00b7 reference and generated preset (round-03)"
+    }
+   ],
+   "critique": [
+    "Garter: the scroll eyes are thick pale rings with a red clump inside; the red band itself should roll into an open red volute with leaves on its rim, the lining only a sliver.",
+    "Garter: the bands run flat and cross in a stiff X; in the reference they climb in S-curves to tall volutes at the top corners and drop to lower volutes beside the shield, framing the silhouette in a wide M.",
+    "Garter: the white fans are long bare blades radiating in a V; they should be short, dense and serrated along their length, layered close beside the helm.",
+    "Stirling: red strands converge on the helm crown in a sunburst; the gathered grey mass should sit beside the helm with upright lobes rising from it.",
+    "Stirling: the lower arcs are smooth tentacles without leafy scroll endings; leaf tips on both are frilled tongues; stepped shading bands."
+   ],
+   "fixes": [
+    "Garter: the folds before the volutes removed so the red band rolls into open red eyes, with lobes on the coil's outer rim.",
+    "Garter: the upper band rebuilt to climb in an S to a tall corner volute and the lower band to drop beside the shield into a second volute, both throwing lobes off the outer edge.",
+    "Garter: nine shorter, denser fans layered close to the helm with serrations at mid-length and tip."
+   ]
+  },
+  {
+   "id": "round-04",
+   "title": "Round 4 \u00b7 after the third round of fixes",
+   "images": [
+    {
+     "src": "proofs/round-04/garter.png",
+     "caption": "Garter \u00b7 reference and generated preset (round-04)"
+    },
+    {
+     "src": "proofs/round-04/stirling.png",
+     "caption": "Stirling \u00b7 reference and generated preset (round-04)"
+    }
+   ]
+  }
+ ]
 }

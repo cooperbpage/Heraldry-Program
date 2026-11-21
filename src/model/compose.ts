@@ -53,6 +53,17 @@ function tryCluster(evs: StripEvent[], t0: number, t1: number, side: Side, size:
   return true;
 }
 
+/** A cluster on the other edge over an existing interval: allowed if the bare rule still holds. */
+function pushCluster(evs: StripEvent[], t0: number, t1: number, side: Side, size: number, depth: number, R: Rng) {
+  t0 = clamp(t0, 0.02, 1);
+  t1 = clamp(t1, 0.02, 1);
+  if (t1 - t0 < 0.03) return false;
+  const ev: ClusterEvent = { kind: 'cluster', id: uid('c'), t0, t1, side, size, depth, split: splitFor(R), gen: true, seed: R.int(0, 9999) };
+  if (covered([...evs, ev]) > 0.6) return false;
+  evs.push(ev);
+  return true;
+}
+
 function splitFor(R: Rng) {
   const n = R.pick([3, 3, 4, 4, 2]);
   const out = [1];
@@ -93,24 +104,30 @@ function decorate(s: Strip, R: Rng, freq: number, rank: number, isChild = false)
     const curl = Math.abs(tr.at(L * 0.92).k) * L > 2.2;
     if (curl || R.chance(isChild ? 0.45 : 0.55)) {
       const t = R.range(0.76, 0.86);
-      const eyeR = clamp(w(t) * R.range(0.32, 0.5), 5, 26);
-      const turns = R.range(1.05, 1.45);
+      const eyeR = clamp(w(t) * R.range(0.55, 0.85), 8, 30);
+      const turns = R.range(0.8, 1.15);
       kept.push({ kind: 'volute', id: uid('v'), t, eye: defaultEye(s.spine, t, eyeR, turns), eyeR, turns, hand: 1, mode: 'terminal', gen: true });
       tipLimit = t;
       // leaves on the outer rim of the coil's shoulder
-      tryCluster(kept, t - R.range(0.16, 0.22), t - 0.03, outerOf(tr, t - 0.2, t), R.range(0.8, 1.1), 3, R, tipLimit);
+      tryCluster(kept, t - R.range(0.16, 0.22), t - 0.03, outerOf(tr, t - 0.2, t), R.range(1.0, 1.3), 3, R, tipLimit);
+      // leaves on the coil's outer rim
+      if (R.chance(0.7)) pushCluster(kept, t + 0.02, t + R.range(0.08, 0.12), outerOf(tr, t - 0.1, t), R.range(0.7, 1.0), 2, R);
     } else {
       tryCluster(kept, R.range(0.8, 0.86), 1, outerOf(tr, 0.8, 1), R.range(0.9, 1.2), 3, R);
       if (R.chance(0.5)) tryCluster(kept, R.range(0.88, 0.93), 1, flip(outerOf(tr, 0.8, 1)), R.range(0.6, 0.8), 2, R);
     }
   } else tipLimit = Math.min(...kept.filter((e): e is import('./types').VoluteEvent => e.kind === 'volute' && e.mode === 'terminal').map((e) => e.t));
   // clusters at the turns
-  const turns = turningPoints(tr).filter((t) => t > 0.22 && t < tipLimit - 0.12);
-  const nC = (isChild ? 0 : 1) + (R.chance(freq) ? 1 : 0) + (freq > 0.75 && R.chance(0.6) ? 1 : 0);
+  const turns = [...turningPoints(tr), 0.3, 0.5, 0.62].filter((t) => t > 0.18 && t < tipLimit - 0.12);
+  const nC = (isChild ? 1 : 2) + (R.chance(freq) ? 1 : 0) + (freq > 0.75 && R.chance(0.6) ? 1 : 0);
   for (let i = 0, made = 0; i < turns.length && made < nC; i++) {
     const t = turns[i];
     const half = R.range(0.05, 0.08);
-    if (tryCluster(kept, t - half, t + half, outerOf(tr, t - half, t + half), R.range(0.9, 1.25) * (rank === 0 ? 1.1 : 0.9), 3, R, tipLimit)) made++;
+    const o = outerOf(tr, t - half, t + half);
+    if (tryCluster(kept, t - half, t + half, o, R.range(1.0, 1.35) * (rank === 0 ? 1.1 : 0.9), 3, R, tipLimit)) {
+      made++;
+      if (R.chance(0.6)) pushCluster(kept, t - half * 0.8, t + half * 0.7, flip(o), R.range(0.55, 0.8), 2, R);
+    }
   }
   // a turnover showing the lining for a stretch
   if (!isChild && R.chance(rank === 0 ? 0.35 : 0.55)) {
@@ -150,6 +167,27 @@ function decorate(s: Strip, R: Rng, freq: number, rank: number, isChild = false)
       decorate(child, R, freq, rank + 1, true);
       kept.push({ kind: 'branch', id: uid('b'), t, side, angle: ang, rootWidth: rw, crossing: R.chance(0.8) ? 'behind' : 'front', child, gen: true });
       break;
+    }
+  }
+  // lining-up fans issuing behind the root of the dominant sweep
+  if (!isChild && rank === 0) {
+    const nf = R.int(2, 3);
+    for (let i = 0; i < nf; i++) {
+      const t = R.range(0.04, 0.12);
+      const side: Side = i % 2 ? 'L' : 'R';
+      const sg = side === 'L' ? 1 : -1;
+      const ang = R.range(35, 70);
+      const a = (ang * Math.PI) / 180;
+      const len = L * R.range(0.35, 0.5);
+      const tip: V = [Math.cos(a) * len, sg * Math.sin(a) * len];
+      const c1: V = [Math.cos(a) * len * 0.35, sg * Math.sin(a) * len * 0.35];
+      const mid: V = add(mul(add(c1, tip), 0.5), mul(perp(norm(sub(tip, c1))), -sg * len * 0.08));
+      const fw = w(t) * R.range(0.9, 1.2);
+      const fan: Strip = { id: uid('s'), spine: [[0, 0], c1, mid, tip], width: [{ t: 0, w: fw * 0.8 }, { t: 0.4, w: fw }, { t: 1, w: fw * 0.75 }], events: [], gen: true };
+      fan.events.push({ kind: 'turnover', id: uid('f'), t: 0.06, length: 0.06, edge: side, crease: 15, gen: true });
+      fan.events.push({ kind: 'cluster', id: uid('c'), t0: 0.72, t1: 1, side: flip(side), size: 0.6, depth: 2, split: [1, 0.85, 0.7], gen: true, seed: R.int(0, 9999) });
+      fan.events.push({ kind: 'cluster', id: uid('c'), t0: 0.8, t1: 1, side, size: 0.45, depth: 2, split: [1, 0.8], gen: true, seed: R.int(0, 9999) });
+      kept.push({ kind: 'branch', id: uid('b'), t, side, angle: ang, rootWidth: fw * 0.8, crossing: 'behind', child: fan, gen: true });
     }
   }
   s.events = kept.sort((a, b) => ('t' in a ? a.t : a.t0) - ('t' in b ? b.t : b.t0));
@@ -200,7 +238,8 @@ export function sweepsFromEnvelope(doc: Doc, env: V[], err: number, mirror: bool
   const half = right.length >= left.length ? right : left;
   const sgn = half === right ? 1 : -1;
   if (half.length < 6) return [];
-  const top = half.reduce((a, b) => (b[1] < a[1] ? b : a));
+  const hw = Math.max(...half.map((p) => Math.abs(p[0] - cx)));
+  const top = half.filter((p) => Math.abs(p[0] - cx) > hw * 0.45).reduce((a, b) => (b[1] < a[1] ? b : a));
   const wide = half.reduce((a, b) => (Math.abs(b[0] - cx) > Math.abs(a[0] - cx) ? b : a));
   const low = half.reduce((a, b) => (b[1] > a[1] ? b : a));
   const anchor = FRAME.anchor;
@@ -212,8 +251,8 @@ export function sweepsFromEnvelope(doc: Doc, env: V[], err: number, mirror: bool
     const outward = dot(n, [sgn, 0]) > 0 ? n : mul(n, -1);
     const m1 = add(add(root, mul(d, 0.35)), mul(outward, -bulge * 0.4));
     const m2 = add(add(root, mul(d, 0.75)), mul(outward, bulge));
-    // curl the end back toward the shield
-    const back: V = [end[0] - sgn * curlIn, end[1] + curlIn * 0.6];
+    // curl the end over and down, back toward the shield side
+    const back: V = [end[0] + sgn * curlIn * 0.3, end[1] + curlIn * 0.9];
     const pts: V[] = [];
     const ctrl = [root, m1, m2, end, back];
     for (let i = 0; i < ctrl.length - 1; i++) for (let k = 0; k < 12; k++) pts.push(lerpPt(ctrl[i], ctrl[i + 1], k / 12));

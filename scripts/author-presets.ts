@@ -38,53 +38,56 @@ function finish(name: string, strips: Strip[], palette = defaultPalette(), setti
 // Garter: red acanthus over layered white fans; broad red bands, open red scroll eyes.
 function garter(): Doc {
   const fans: Strip[] = [];
-  // broad, many-ribbed white fans spreading on both sides of the helm, reaching past the red
+  // short, dense white fans layered close beside the helm, serrated along their length
   const fanDirs: [number, number, number, number, number][] = [
     // angle(deg), length, width, bend, root dy
-    [-62, 170, 40, -0.2, -8],
-    [-46, 215, 44, -0.16, -4],
-    [-30, 250, 46, -0.12, 0],
-    [-15, 262, 46, -0.06, 2],
-    [0, 255, 44, 0.02, 6],
-    [16, 232, 44, 0.08, 10],
-    [32, 200, 42, 0.14, 14],
-    [50, 160, 38, 0.2, 18],
+    [-78, 120, 34, -0.2, -10],
+    [-62, 150, 38, -0.18, -8],
+    [-46, 170, 40, -0.14, -4],
+    [-30, 180, 42, -0.1, 0],
+    [-14, 185, 42, -0.05, 4],
+    [2, 180, 40, 0.02, 8],
+    [18, 170, 40, 0.08, 12],
+    [34, 155, 38, 0.14, 16],
+    [50, 135, 34, 0.2, 20],
   ];
   for (const [deg, len, w, bend, dy] of fanDirs) {
     const a = (deg * Math.PI) / 180;
-    const o: V = [512, 410 + dy];
+    const o: V = [514, 410 + dy];
     const d: V = [Math.cos(a), Math.sin(a)];
     const nrm: V = [-d[1], d[0]];
     const p1: V = [o[0] + d[0] * len, o[1] + d[1] * len];
     const c1: V = [o[0] + d[0] * len * 0.35, o[1] + d[1] * len * 0.35];
     const c2: V = [o[0] + d[0] * len * 0.7 + nrm[0] * len * bend, o[1] + d[1] * len * 0.7 + nrm[1] * len * bend];
+    const sa: Side = bend >= 0 ? 'L' : 'R', sb: Side = bend >= 0 ? 'R' : 'L';
     fans.push(S([o, c1, c2, p1], W([0, w * 0.7], [0.35, w], [0.8, w * 0.95], [1, w * 0.75]), () => [
-      fold(0.08, 'L', 0.07, 20),
-      cl(0.72, 1, bend >= 0 ? 'L' : 'R', 0.55, 2, [1, 0.85, 0.7]),
-      cl(0.8, 1, bend >= 0 ? 'R' : 'L', 0.45, 2, [1, 0.8]),
+      fold(0.06, 'L', 0.06, 20),
+      cl(0.36, 0.5, sa, 0.45, 2, [1, 0.8]),
+      cl(0.38, 0.5, sb, 0.35, 2, [1, 0.8]),
+      cl(0.66, 1, sa, 0.55, 2, [1, 0.85, 0.7]),
+      cl(0.74, 1, sb, 0.45, 2, [1, 0.8]),
     ], -10));
   }
-  // upper band: a wide flat acanthus ribbon rising over the fans into a leafy top and an open scroll
-  const up: V[] = [[516, 392], [590, 352], [650, 296], [712, 290], [764, 286], [770, 340], [726, 350]];
-  const upper = S(up, W([0, 18], [0.18, 30], [0.4, 22], [0.62, 32], [1, 22]), (sp) => [
-    cl(0.14, 0.24, 'out', 0.8, 3, [1, 0.6, 0.4]),
-    cl(0.34, 0.52, 'out', 1.2, 3, [1, 0.62, 0.45, 0.3]),
-    cl(0.36, 0.5, 'in', 0.6, 2, [1, 0.6, 0.4]),
-    fold(0.72, 'R', 0.08, 35),
-    vol(sp, 0.8, 18, 0.8),
-  ], 2);
-  // middle band: out over the fans and down into the lower scroll, lobed along both edges near the helm
-  const mid: V[] = [[516, 420], [610, 418], [700, 396], [748, 428], [786, 456], [766, 514], [714, 506]];
-  const lowerBranch = S([[0, 0], [40, 10], [75, 26], [96, 56]], W([0, 15], [0.5, 20], [1, 14]), () => [
-    cl(0.55, 1, 'L', 1.0, 3, [1, 0.6, 0.4, 0.25]),
-  ]);
-  const middle = S(mid, W([0, 22], [0.15, 34], [0.35, 26], [0.6, 32], [1, 22]), (sp) => [
-    cl(0.08, 0.26, 'L', 0.9, 3, [1, 0.7, 0.5, 0.3]),
-    cl(0.1, 0.24, 'R', 0.55, 2, [1, 0.6]),
-    cl(0.44, 0.6, 'out', 1.15, 3, [1, 0.62, 0.42, 0.3]),
-    br(0.64, 'L', 40, 14, lowerBranch),
-    fold(0.74, 'L', 0.08, 35),
+  // upper band: climbs from the helm in an S to a tall open red volute at the top corner,
+  // its outer edge throwing off forward-hooking lobes
+  const up: V[] = [[516, 392], [570, 372], [600, 330], [620, 290], [640, 246], [692, 214], [736, 236], [770, 254], [764, 304], [724, 300]];
+  const upper = S(up, W([0, 20], [0.2, 32], [0.4, 26], [0.62, 32], [1, 24]), (sp) => [
+    cl(0.1, 0.2, 'out', 0.8, 3, [1, 0.6, 0.4]),
+    cl(0.3, 0.44, 'out', 1.15, 3, [1, 0.62, 0.45, 0.3]),
+    cl(0.32, 0.42, 'in', 0.6, 2, [1, 0.6]),
+    cl(0.54, 0.66, 'out', 1.1, 3, [1, 0.62, 0.45, 0.3]),
     vol(sp, 0.8, 18, 0.85),
+    cl(0.82, 0.92, 'out', 0.85, 3, [1, 0.6, 0.4]),
+  ], 2);
+  // lower band: out across the fans, then dropping beside the shield into an open red volute
+  const mid: V[] = [[516, 422], [600, 424], [680, 416], [730, 444], [778, 472], [790, 530], [756, 556], [722, 580], [690, 548], [714, 528]];
+  const middle = S(mid, W([0, 22], [0.15, 34], [0.35, 26], [0.6, 32], [1, 22]), (sp) => [
+    cl(0.08, 0.22, 'L', 0.9, 3, [1, 0.7, 0.5, 0.3]),
+    cl(0.1, 0.2, 'R', 0.55, 2, [1, 0.6]),
+    cl(0.36, 0.5, 'out', 1.2, 3, [1, 0.62, 0.42, 0.3]),
+    cl(0.58, 0.7, 'out', 1.0, 3, [1, 0.6, 0.4]),
+    vol(sp, 0.84, 17, 0.9),
+    cl(0.86, 0.95, 'out', 0.8, 2, [1, 0.6, 0.4]),
   ], 1);
   return finish('Garter', [...fans, middle, upper], { ...defaultPalette(), outer: '#c4262a', lining: '#eeeae2' });
 }
