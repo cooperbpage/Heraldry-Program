@@ -114,7 +114,7 @@
   },
   {
    "id": "round-04",
-   "title": "Round 4 \u00b7 after the third round of fixes",
+   "title": "Round 4 \u00b7 after three rounds of fixes (final review: remaining defects)",
    "images": [
     {
      "src": "proofs/round-04/garter.png",
@@ -124,6 +124,14 @@
      "src": "proofs/round-04/stirling.png",
      "caption": "Stirling \u00b7 reference and generated preset (round-04)"
     }
+   ],
+   "note": "Not fixed yet. These are the open defects found by a fourth, independent review.",
+   "critique": [
+    "Stirling: the red is a spray of long thin straps radiating from the helm with ruffled tufts; it should be a few short, heavy, deeply cut lobe-stacks standing upright on each side.",
+    "Stirling: the gathered grey cloth is still mostly hidden, and a V-shaped gap above the helm splits the outline into two wings; it needs a central grey drapery mass and a red band bridging the top into a squared block.",
+    "Garter: the upper stems cross in an X above the helm and all four end in thin fiddlehead coils; the bands should leave the helm sideways, widen and taper like cloth, show lining at turnovers, and roll into large open eyes with lobes along the curl.",
+    "Garter: the white reads as a cauliflower clump between the X arms; it should be two wing-like fans at helm height of long pointed fronds radiating outward in layers.",
+    "Both: every leaf is the same flame-shaped ruffled tuft rather than a lobe divided into 3\u20135 serrated, forward-hooking fingers spread along the stem; shading still bands along the length."
    ]
   }
  ]
