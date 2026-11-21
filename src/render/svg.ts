@@ -101,7 +101,7 @@ function brightness(p: Piece, s: number, v: number) {
   const nx = -a.ty, ny = a.tx; // +v direction
   const av = Math.abs(v);
   // channel: surface tilts toward the midline; at the rim the edge rolls over and faces outward
-  const slope = 0.8 * v * (1 - 2.8 * smooth(0.86, 1.0, av)) + (p.kind === 'leaf' ? 0.25 * v : 0);
+  const slope = (p.kind === 'leaf' ? 0.9 : 0.55) * v * (1 - 2.8 * smooth(0.86, 1.0, av)) + (p.kind === 'leaf' ? 0.25 * v : 0);
   let gx = -slope * nx, gy = -slope * ny, gz = 1;
   const gl = Math.hypot(gx, gy, gz);
   gx /= gl;
@@ -115,6 +115,12 @@ function brightness(p: Piece, s: number, v: number) {
   const u = (s - s0) / Math.max(1e-3, s1 - s0);
   if (p.cup > 0) b *= lerp(1 - 0.42 * p.cup, 1.06, smooth(0, 0.65, u));
   if (p.startShade > 0) b *= 1 - 0.38 * p.startShade * Math.exp(-(s - s0) / 9);
+  // the inside of a turn and the underside of a curl fall into shadow
+  const ks = a.k * (v >= 0 ? 1 : -1);
+  if (ks > 0) {
+    const h = v >= 0 ? hAt(p.hL, p.track, s) : hAt(p.hR, p.track, s);
+    b *= 1 - 0.32 * clamp(ks * h * 1.4, 0, 1) * smooth(0.1, 1, Math.abs(v));
+  }
   // occlusion near the helm
   const rd = p.rootDist + s;
   if (p.level === 0) b *= 1 - 0.38 * Math.exp(-rd / 60);

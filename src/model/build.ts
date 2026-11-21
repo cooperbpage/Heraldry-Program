@@ -623,6 +623,8 @@ function lobeFan(ctx: Ctx, R: Rng, sp: LeafSpec, part: number, stripId: string, 
 
 function leaf(ctx: Ctx, R: Rng, sp: LeafSpec, stripId: string, eventId: string, path: string): Piece[] {
   const st = ctx.st;
+  // a leaflet too small to read as a distinct finger only crumbles the edge: leave it out
+  if (sp.level > 1 && (sp.length < 9 || sp.baseHalf < 1.6)) return [];
   const a = sp.parent.at(sp.sBase);
   const T: V = [a.tx, a.ty];
   const N = mul(perp(T), sp.sg);

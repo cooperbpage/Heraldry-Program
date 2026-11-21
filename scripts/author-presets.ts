@@ -38,56 +38,64 @@ function finish(name: string, strips: Strip[], palette = defaultPalette(), setti
 // Garter: red acanthus over layered white fans; broad red bands, open red scroll eyes.
 function garter(): Doc {
   const fans: Strip[] = [];
-  // white flutes radiating from behind the helm (lining up after a hidden turnover at the root)
+  // broad white fans spreading sideways at mid-height, overlapping, tips split into pointed fingers
   const fanDirs: [number, number, number, number][] = [
     // angle(deg), length, width, bend
-    [-64, 120, 20, -0.25],
-    [-46, 150, 22, -0.22],
-    [-28, 175, 24, -0.15],
-    [-10, 185, 24, -0.08],
-    [10, 175, 22, 0.08],
-    [30, 160, 22, 0.16],
-    [50, 140, 20, 0.24],
-    [68, 110, 18, 0.3],
+    [-44, 150, 34, -0.18],
+    [-30, 178, 38, -0.14],
+    [-16, 196, 38, -0.08],
+    [-3, 200, 36, 0.0],
+    [14, 180, 36, 0.08],
+    [30, 160, 34, 0.14],
+    [46, 135, 32, 0.2],
   ];
   for (const [deg, len, w, bend] of fanDirs) {
     const a = (deg * Math.PI) / 180;
-    const o: V = [512, 404];
+    const o: V = [512, 418];
     const d: V = [Math.cos(a), Math.sin(a)];
     const nrm: V = [-d[1], d[0]];
     const p1: V = [o[0] + d[0] * len, o[1] + d[1] * len];
     const c1: V = [o[0] + d[0] * len * 0.35, o[1] + d[1] * len * 0.35];
     const c2: V = [o[0] + d[0] * len * 0.7 + nrm[0] * len * bend, o[1] + d[1] * len * 0.7 + nrm[1] * len * bend];
-    fans.push(S([o, c1, c2, p1], W([0, w * 0.7], [0.3, w], [0.75, w * 0.9], [1, w * 0.5]), () => [
-      fold(0.12, 'L', 0.1, 20),
-      cl(0.72, 1, bend >= 0 ? 'L' : 'R', 0.55, 2, [1, 0.7, 0.5]),
-      cl(0.82, 1, bend >= 0 ? 'R' : 'L', 0.4, 2, [1, 0.6]),
+    fans.push(S([o, c1, c2, p1], W([0, w * 0.75], [0.35, w], [0.8, w * 0.95], [1, w * 0.7]), () => [
+      fold(0.1, 'L', 0.08, 20),
+      cl(0.7, 1, bend >= 0 ? 'L' : 'R', 0.6, 2, [1, 0.85, 0.7]),
+      cl(0.8, 1, bend >= 0 ? 'R' : 'L', 0.45, 2, [1, 0.8]),
     ], -10));
   }
-  // upper sweep: out along the brow of the white fans, rising into a burst of leaves and a hook
-  const up: V[] = [[516, 392], [585, 366], [650, 362], [688, 336], [724, 308], [716, 258], [676, 262]];
-  const upper = S(up, W([0, 18], [0.25, 27], [0.6, 25], [1, 17]), (sp) => [
-    cl(0.5, 0.76, 'out', 1.15, 3, [1, 0.62, 0.45, 0.3]),
-    cl(0.22, 0.32, 'L', 0.7, 2, [1, 0.55, 0.35]),
-    vol(sp, 0.86, 9, 1.1),
+  // upper sweep: rises over the fans into a leafy top and an open, leafy curl
+  const up: V[] = [[516, 388], [575, 350], [640, 300], [700, 294], [752, 290], [758, 342], [716, 352]];
+  const upper = S(up, W([0, 16], [0.3, 25], [0.65, 24], [1, 18]), (sp) => [
+    cl(0.12, 0.24, 'in', 0.8, 3, [1, 0.6, 0.4]),
+    cl(0.12, 0.24, 'out', 0.7, 2, [1, 0.6, 0.4]),
+    cl(0.32, 0.52, 'out', 1.3, 3, [1, 0.62, 0.45, 0.3]),
+    cl(0.36, 0.5, 'in', 0.8, 3, [1, 0.6, 0.4]),
+    vol(sp, 0.8, 15, 0.85),
+    cl(0.82, 0.94, 'out', 1.0, 3, [1, 0.6, 0.4]),
   ], 2);
-  // middle sweep: out, turning down at the right into the lower scroll with an open eye
-  const mid: V[] = [[516, 420], [600, 412], [700, 392], [734, 446], [756, 488], [722, 528], [684, 512]];
-  const lowerBranch = S([[0, 0], [40, 12], [80, 30], [95, 60]], W([0, 16], [0.5, 19], [1, 10]), () => [
-    cl(0.55, 1, 'L', 1.0, 3, [1, 0.6, 0.4, 0.25]),
+  // middle band: out across the fans, turning down at the right into the lower scroll's open eye
+  const mid: V[] = [[516, 418], [600, 410], [690, 392], [738, 424], [776, 452], [756, 510], [704, 502]];
+  const lowerBranch = S([[0, 0], [40, 10], [75, 26], [96, 56]], W([0, 15], [0.5, 18], [1, 12]), () => [
+    cl(0.5, 1, 'L', 1.2, 3, [1, 0.6, 0.4, 0.25]),
+    cl(0.6, 1, 'R', 0.8, 2, [1, 0.6, 0.4]),
   ]);
-  const middle = S(mid, W([0, 20], [0.2, 30], [0.55, 28], [1, 19]), (sp) => [
-    cl(0.42, 0.58, 'out', 1.0, 3, [1, 0.6, 0.42, 0.3]),
-    cl(0.12, 0.27, 'R', 0.9, 2, [1, 0.6, 0.4]),
-    br(0.64, 'L', 40, 15, lowerBranch),
-    vol(sp, 0.84, 12, 1.25),
+  const middle = S(mid, W([0, 17], [0.2, 26], [0.55, 25], [1, 19]), (sp) => [
+    cl(0.16, 0.3, 'R', 1.0, 3, [1, 0.6, 0.4]),
+    cl(0.16, 0.3, 'L', 0.8, 3, [1, 0.6, 0.4]),
+    cl(0.42, 0.6, 'out', 1.35, 3, [1, 0.62, 0.42, 0.3]),
+    cl(0.44, 0.58, 'in', 0.8, 2, [1, 0.6, 0.4]),
+    br(0.64, 'L', 40, 14, lowerBranch),
+    vol(sp, 0.8, 16, 0.95),
+    cl(0.82, 0.94, 'out', 1.0, 3, [1, 0.6, 0.4]),
   ], 1);
-  // broad lobed leaf lying across the fans just right of the helm
-  const leafBand = S([[520, 446], [565, 440], [610, 452], [650, 462]], W([0, 24], [0.4, 32], [1, 18]), () => [
-    cl(0.18, 0.46, 'L', 0.8, 3, [1, 0.7, 0.5, 0.3]),
-    cl(0.7, 1, 'L', 0.9, 3, [1, 0.65, 0.4]),
+  // broad lobed leaf lying across the lower fans just right of the helm
+  const leafBand = S([[520, 446], [570, 442], [620, 455], [665, 468]], W([0, 22], [0.4, 30], [1, 18]), () => [
+    cl(0.15, 0.42, 'L', 0.9, 3, [1, 0.7, 0.5, 0.3]),
+    cl(0.2, 0.4, 'R', 0.6, 2, [1, 0.6]),
+    cl(0.65, 0.95, 'L', 1.0, 3, [1, 0.65, 0.4]),
+    cl(0.7, 0.95, 'R', 0.7, 2, [1, 0.6, 0.4]),
   ], 3);
-  return finish('Garter', [...fans, middle, upper, leafBand]);
+  return finish('Garter', [...fans, middle, upper, leafBand], { ...defaultPalette(), outer: '#c4262a', lining: '#eeeae2' });
 }
 
 // ---------------------------------------------------------------------------
@@ -95,40 +103,43 @@ function garter(): Doc {
 function stirling(): Doc {
   const pal = { ...defaultPalette(), outer: '#a3161c', lining: '#b8b3ab', paper: '#f1e9da' };
   const grey: Strip[] = [];
-  const g: [V[], number][] = [
-    [[[510, 400], [560, 330], [620, 270], [610, 205]], 54],
-    [[[514, 408], [600, 360], [680, 300], [690, 230]], 58],
-    [[[514, 420], [610, 410], [690, 400], [740, 340]], 56],
-    [[[514, 432], [590, 452], [650, 480], [700, 470]], 52],
-    [[[512, 446], [560, 480], [600, 520], [620, 560]], 46],
+  // a gathered body of grey cloth behind the helm, rising into open curls at the top
+  const g: [V[], number, number | null][] = [
+    [[[508, 392], [520, 320], [540, 250], [592, 226], [632, 208], [628, 160], [596, 170]], 60, 0.8],
+    [[[512, 398], [580, 340], [640, 270], [690, 262], [732, 256], [742, 214], [712, 206]], 62, 0.8],
+    [[[514, 410], [600, 390], [660, 360], [700, 330]], 64, null],
+    [[[514, 424], [590, 420], [640, 440], [680, 470]], 60, null],
+    [[[512, 440], [560, 470], [600, 500], [620, 540]], 52, null],
   ];
-  for (const [sp, w] of g)
-    grey.push(S(sp, W([0, w * 0.7], [0.35, w], [0.8, w * 0.8], [1, w * 0.45]), (s) => [
-      fold(0.1, 'R', 0.1, 15),
-      cl(0.62, 0.95, 'L', 0.55, 2, [1, 0.7, 0.5]),
-      vol(s, 0.9, 10, 1.0),
+  for (const [sp, w, vt] of g)
+    grey.push(S(sp, W([0, w * 0.8], [0.35, w], [0.8, w * 0.8], [1, w * 0.55]), (s) => [
+      fold(0.08, 'R', 0.08, 15),
+      cl(0.55, 0.72, 'out', 0.6, 2, [1, 0.75, 0.55]),
+      ...(vt ? [vol(s, vt, 12, 0.95)] : [cl(0.82, 1, 'out', 0.6, 2, [1, 0.75, 0.55])]),
     ], -10));
-  // top stem rising over the helm then turning over to a grey curl
-  const topSp: V[] = [[512, 384], [540, 320], [590, 268], [640, 262], [686, 256], [700, 210], [668, 196]];
-  const top = S(topSp, W([0, 26], [0.3, 38], [0.7, 32], [1, 22]), (sp) => [
-    cl(0.3, 0.48, 'out', 1.1, 3, [1, 0.6, 0.45, 0.3]),
-    fold(0.62, 'L', 0.1, 35),
-    vol(sp, 0.84, 11, 1.2),
-  ], 2);
-  // the great upright mass at the right
-  const massSp: V[] = [[514, 410], [600, 400], [680, 420], [716, 360], [740, 320], [740, 270], [722, 236]];
-  const mass = S(massSp, W([0, 30], [0.3, 46], [0.7, 44], [1, 22]), () => [
-    cl(0.48, 0.72, 'out', 1.25, 3, [1, 0.62, 0.45, 0.3]),
-    cl(0.78, 1, 'L', 1.0, 3, [1, 0.6, 0.4]),
-    cl(0.12, 0.24, 'L', 0.8, 2, [1, 0.6, 0.4]),
+  // red stem rising close beside the helm, its lobes stacked upward
+  const r1Sp: V[] = [[516, 384], [566, 350], [602, 300], [612, 234]];
+  const r1 = S(r1Sp, W([0, 22], [0.3, 32], [0.7, 28], [1, 18]), () => [
+    cl(0.3, 0.5, 'out', 1.1, 3, [1, 0.62, 0.45, 0.3]),
+    cl(0.6, 0.74, 'in', 0.8, 2, [1, 0.6, 0.4]),
+    cl(0.84, 1, 'out', 0.9, 3, [1, 0.6, 0.4]),
   ], 3);
-  // lower hook descending beside the crown, ending in a scroll
-  const lowSp: V[] = [[516, 440], [580, 470], [640, 470], [668, 520], [690, 566], [650, 600], [622, 572]];
-  const low = S(lowSp, W([0, 30], [0.3, 42], [0.7, 38], [1, 24]), (sp) => [
-    cl(0.34, 0.52, 'out', 1.0, 3, [1, 0.6, 0.4, 0.3]),
-    vol(sp, 0.82, 11, 1.2),
+  // the great upright mass at the right: out, then turning up with heavy stacked lobes
+  const r2Sp: V[] = [[516, 404], [610, 408], [680, 392], [702, 340], [718, 300], [716, 260], [700, 228]];
+  const r2 = S(r2Sp, W([0, 24], [0.3, 34], [0.7, 32], [1, 20]), () => [
+    cl(0.2, 0.3, 'R', 0.8, 2, [1, 0.6, 0.4]),
+    cl(0.44, 0.6, 'out', 1.2, 3, [1, 0.62, 0.45, 0.3]),
+    cl(0.68, 0.8, 'in', 0.9, 3, [1, 0.6, 0.4]),
+    cl(0.88, 1, 'out', 1.0, 3, [1, 0.6, 0.4]),
+  ], 3);
+  // lower hook descending beside the crown into a leafy scroll
+  const lowSp: V[] = [[516, 438], [580, 452], [636, 462], [660, 506], [680, 548], [648, 580], [622, 556]];
+  const low = S(lowSp, W([0, 22], [0.3, 32], [0.7, 30], [1, 22]), (sp) => [
+    cl(0.3, 0.48, 'out', 1.0, 3, [1, 0.6, 0.4, 0.3]),
+    vol(sp, 0.8, 12, 0.95),
+    cl(0.83, 0.93, 'out', 0.7, 2, [1, 0.6, 0.4]),
   ], 2);
-  return finish('Stirling', [...grey, top, mass, low], pal);
+  return finish('Stirling', [...grey, r1, r2, low], pal);
 }
 
 const out = process.argv[2] || 'src/presets';
