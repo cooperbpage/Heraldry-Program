@@ -1,0 +1,25 @@
+:root {
+  --paper: #f4efe4;
+  --ink: #2a2420;
+  --muted: #7a6f63;
+  --rule: #d6ccbb;
+  --accent: #9b2a22;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--paper); color: var(--ink); }
+body {
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  -webkit-text-size-adjust: 100%;
+}
+.masthead {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: max(12px, env(safe-area-inset-top)) 16px 8px;
+  border-bottom: 1px solid var(--rule);
+}
+.masthead h1 { font-size: 1.25rem; font-weight: 400; font-style: italic; margin: 0; letter-spacing: 0.01em; }
+.navlink {
+  min-height: 44px; min-width: 44px; display: inline-flex; align-items: center;
+  color: var(--accent); text-decoration: none; font-variant: small-caps; letter-spacing: 0.06em;
+}
+.prose { padding: 16px; max-width: 40rem; line-height: 1.5; }
