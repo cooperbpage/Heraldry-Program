@@ -1,15 +1,25 @@
 /**
- * Doc -> ordered list of cloth pieces. Every piece is a region of a Track described in that
- * track's own (s, v) coordinates, so outline, shading, hatching and midrib are all generated
- * from one mapping and can never drift apart.
+ * Doc -> two-faced 3D cloth ribbons.
+ *
+ * Every strip (and every lobe and leaflet) is a ribbon of cloth: a centreline in the picture plane
+ * with a depth z(s), a half width h(s), and a twist θ(s) that turns the ribbon's width direction
+ * about its own tangent. The outer face is toward the viewer when θ = 0; as θ passes ±90° the
+ * ribbon goes edge-on and beyond that its lining shows. A turn-over is a gradual half twist spread
+ * along a stretch of the band (usually where it bends), with the turned part lifted toward the
+ * viewer so it passes in front. Lobes are ribbons that issue from beneath their parent's edge and
+ * inherit its twist, so they show the same face as the cloth they grow from, and their tips can
+ * themselves curl over to show the lining. The renderer meshes these surfaces in 3D, so colour,
+ * outline and shading all follow from the one surface.
  */
 import { V, add, mul, perp, rot, dot, sub, clamp, lerp, smooth, rng, hash, Rng, angleOf } from '../geom/vec';
 import { Spine } from '../geom/bezier';
 import { Track, Sample, spineSamples, trackFromSamples, integrate, resample } from '../geom/track';
 import { makeSpiral } from '../geom/spiral';
-import type { Doc, Strip, ClusterEvent, TurnoverEvent, VoluteEvent, Settings, Side } from './types';
+import type { Doc, Strip, ClusterEvent, TurnoverEvent, VoluteEvent, RollEvent, Settings, Side } from './types';
 
 export const STEP = 1.5;
+/** depth gained by the part of a ribbon beyond a turn-over (it passes in front) */
+const LIFT = 26;
 
 export interface Frame {
   o: V;
@@ -23,44 +33,50 @@ export const toLocal = (f: Frame, p: V): V => {
   return [dot(d, f.ex), dot(d, f.ey)];
 };
 
-export type Kind = 'strip' | 'leaf' | 'lip' | 'rim';
-
-export interface Piece {
-  id: string;
-  kind: Kind;
-  /** owning strip id + event id (for hit testing / selection) */
-  stripId: string;
-  eventId?: string;
-  track: Track;
-  hL: Float64Array;
-  hR: Float64Array;
-  s0: (v: number) => number;
-  s1: (v: number) => number;
-  vMin: number;
-  vMax: number;
-  face: 0 | 1;
-  /** strength of the cupped-lobe shading (darker at base) */
-  cup: number;
-  /** fill fades in over this arc length from the start (lobe bases melt into the parent) */
-  alphaIn: number;
-  /** fold shadow at the start (just past a crease) */
-  startShade: number;
-  strokeStart: boolean;
-  strokeEnd: boolean;
-  exclude?: { track: Track; hL: Float64Array; hR: Float64Array; i0: number; i1: number };
-  /** arc length from the helm root (for occlusion) at s=0 of this piece's track */
-  rootDist: number;
-  level: number;
-  midrib: boolean;
-  /** stretches of an edge left unstroked because foliage issues from beneath it */
-  gaps?: Gap[];
-}
-
 export interface Gap {
+  /** material side of the ribbon (+1 = the +u / 'L' edge) */
   side: 1 | -1;
   s0: number;
   s1: number;
 }
+
+/** One cloth ribbon ready to mesh. */
+export interface Ribbon {
+  id: string;
+  kind: 'strip' | 'leaf';
+  stripId: string;
+  eventId?: string;
+  level: number;
+  /** centreline in the picture plane */
+  track: Track;
+  /** true half width per side (material +u side = L) */
+  hU: Float64Array;
+  hD: Float64Array;
+  /** twist and depth along the ribbon */
+  th: Float64Array;
+  z: Float64Array;
+  /** projected half widths (for hit tests and framing) */
+  hL: Float64Array;
+  hR: Float64Array;
+  gaps: Gap[];
+  strokeStart: boolean;
+  strokeEnd: boolean;
+  rootDist: number;
+  /** how strongly the cloth cups across its width */
+  cup: number;
+  midrib: boolean;
+  /** cast-shadow / occlusion strength near the root */
+  occlude: boolean;
+  /** fraction of each half width rolled over at its edge (shows a strip of lining) */
+  rollU?: Float64Array;
+  rollD?: Float64Array;
+  /** forward lean of each edge (arc-length shift of the edge point), so edge lobes sweep toward the tip */
+  leanU?: Float64Array;
+  leanD?: Float64Array;
+}
+
+/** Kept for the editor: ribbons are the drawable pieces. */
+export type Piece = Ribbon;
 
 export interface StripGeo {
   strip: Strip;
@@ -68,9 +84,10 @@ export interface StripGeo {
   track: Track;
   /** full length of the authored Bézier spine, the unit for event t */
   Lb: number;
+  /** projected half widths (what the eye sees), used by the editor */
   hL: Float64Array;
   hR: Float64Array;
-  /** where a terminal volute replaces the spine (abs arc), or -1 */
+  ribbon: Ribbon;
   spiralStart: number;
   creases: { s: number; slope: number; ev: TurnoverEvent }[];
   baseFace: 0 | 1;
@@ -81,13 +98,19 @@ export interface StripGeo {
 }
 
 export interface Built {
-  pieces: Piece[];
+  pieces: Ribbon[];
   geos: StripGeo[];
-  /** every strip geo, flattened (for hit tests) */
   all: StripGeo[];
 }
 
 // ---------------------------------------------------------------------------
+// helpers
+
+/** C2 easing (smootherstep) */
+export const ease = (a: number, b: number, x: number) => {
+  const t = clamp((x - a) / (b - a), 0, 1);
+  return t * t * t * (t * (t * 6 - 15) + 10);
+};
 
 function interpKnots(knots: { t: number; w: number }[], t: number) {
   if (!knots.length) return 30;
@@ -96,31 +119,11 @@ function interpKnots(knots: { t: number; w: number }[], t: number) {
     const a = knots[i], b = knots[i + 1];
     if (t <= b.t) {
       const u = (t - a.t) / Math.max(1e-6, b.t - a.t);
-      // smooth (cosine) interpolation keeps swells rounded
       const e = (1 - Math.cos(Math.PI * u)) / 2;
       return a.w + (b.w - a.w) * e;
     }
   }
   return knots[knots.length - 1].w;
-}
-
-/** Clamp each side's half width to the local radius of curvature so offsets never fold, then smooth. */
-function clampToCurvature(tr: Track, hL: Float64Array, hR: Float64Array) {
-  const n = tr.n;
-  for (let i = 0; i < n; i++) {
-    const k = tr.k[i];
-    if (k > 1e-6) hL[i] = Math.min(hL[i], 0.9 / k);
-    else if (k < -1e-6) hR[i] = Math.min(hR[i], 0.9 / -k);
-  }
-  for (const h of [hL, hR]) {
-    // erode: a station may not exceed its neighbours by more than a gentle slope
-    for (let pass = 0; pass < 2; pass++) {
-      for (let i = 1; i < n; i++) h[i] = Math.min(h[i], h[i - 1] + STEP * 0.9);
-      for (let i = n - 2; i >= 0; i--) h[i] = Math.min(h[i], h[i + 1] + STEP * 0.9);
-    }
-    const c = Float64Array.from(h);
-    for (let i = 2; i < n - 2; i++) h[i] = Math.min(c[i], (c[i - 2] + c[i - 1] + c[i] + c[i + 1] + c[i + 2]) / 5);
-  }
 }
 
 export function hAt(arr: Float64Array, tr: Track, s: number) {
@@ -130,7 +133,7 @@ export function hAt(arr: Float64Array, tr: Track, s: number) {
   return arr[i] + (arr[i + 1] - arr[i]) * (f - i);
 }
 
-/** Point at (s, v) on a track with per-side half widths. */
+/** Projected point at (s, v) using projected half widths (editor handles and hit tests). */
 export function P(tr: Track, hL: Float64Array, hR: Float64Array, s: number, v: number): V {
   const f = tr.idx(s);
   const i = Math.min(tr.n - 2, Math.max(0, Math.floor(f)));
@@ -146,36 +149,133 @@ export function P(tr: Track, hL: Float64Array, hR: Float64Array, s: number, v: n
   return [x - ty * v * h, y + tx * v * h];
 }
 
-const sideSign = (s: Side) => (s === 'L' ? 1 : -1);
+/** Twist value at arc length s (interpolated). */
+export function at(arr: Float64Array, tr: Track, s: number) {
+  return hAt(arr, tr, s);
+}
+
+/** Visible face at s: 0 = outer, 1 = lining. */
+export function faceOfTwist(th: number): 0 | 1 {
+  return Math.cos(th) >= 0 ? 0 : 1;
+}
+
+/**
+ * Limit the projected width on the inside of tight bends so the surface never folds through
+ * itself, then fill in projected half widths. Works per material side.
+ */
+function finishWidths(tr: Track, hU: Float64Array, hD: Float64Array, th: Float64Array, erodeAfter = true) {
+  const n = tr.n;
+  const hL = new Float64Array(n), hR = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const c = Math.cos(th[i]);
+    const k = tr.k[i];
+    // projected offset of the +u edge is along +n when cos > 0; the inner side of the bend is
+    // +n when k > 0. Scale the material half width on whichever side lands inside the bend.
+    const lim = Math.abs(k) > 1e-6 ? 0.88 / Math.abs(k) : Infinity;
+    const innerIsU = (k > 0) === (c >= 0);
+    const ac = Math.max(1e-3, Math.abs(c));
+    if (innerIsU) hU[i] = Math.min(hU[i], lim / ac);
+    else hD[i] = Math.min(hD[i], lim / ac);
+  }
+  if (erodeAfter) erode(hU, hD);
+  for (let i = 0; i < n; i++) {
+    const c = Math.cos(th[i]);
+    const pu = Math.max(0.4, hU[i] * Math.abs(c)), pd = Math.max(0.4, hD[i] * Math.abs(c));
+    if (c >= 0) {
+      hL[i] = pu;
+      hR[i] = pd;
+    } else {
+      hL[i] = pd;
+      hR[i] = pu;
+    }
+  }
+  return { hL, hR };
+}
+
+function erode(hU: Float64Array, hD: Float64Array) {
+  const n = hU.length;
+  for (const h of [hU, hD]) {
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 1; i < n; i++) h[i] = Math.min(h[i], h[i - 1] + STEP * 0.9);
+      for (let i = n - 2; i >= 0; i--) h[i] = Math.min(h[i], h[i + 1] + STEP * 0.9);
+    }
+  }
+}
+
+/** Projected direction (unit, picture plane) of a material side at station s. */
+function sideDir(tr: Track, th: Float64Array, s: number, side: number): V {
+  const a = tr.at(s);
+  const c = Math.cos(at(th, tr, s));
+  const sg = side * (c >= 0 ? 1 : -1);
+  return mul(perp([a.tx, a.ty]), sg);
+}
+
+/** Smooth the curvature jump where a terminal volute meets its stem. */
+function smoothJoin(pts: Sample[], cum: number[], sJoin: number, span: number) {
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+  const out = pts.map((p) => ({ ...p }));
+  for (let i = 0; i < pts.length; i++) {
+    const d = Math.abs(cum[i] - sJoin);
+    if (d > span) continue;
+    const w = 0.5 * (1 + Math.cos((Math.PI * d) / span));
+    let sx = 0, sy = 0, sw = 0;
+    for (let j = Math.max(0, i - 12); j <= Math.min(pts.length - 1, i + 12); j++) {
+      const g = Math.exp(-(((j - i) / 6) ** 2));
+      sx += xs[j] * g;
+      sy += ys[j] * g;
+      sw += g;
+    }
+    out[i].x = xs[i] + (sx / sw - xs[i]) * w;
+    out[i].y = ys[i] + (sy / sw - ys[i]) * w;
+  }
+  for (let i = 0; i < out.length; i++) {
+    const a = out[Math.max(0, i - 1)], b = out[Math.min(out.length - 1, i + 1)];
+    const l = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    out[i].tx = (b.x - a.x) / l;
+    out[i].ty = (b.y - a.y) / l;
+  }
+  return out;
+}
+
+/** Recompute signed curvature from positions (after any smoothing). */
+function recomputeK(tr: Track) {
+  for (let i = 1; i < tr.n - 1; i++) {
+    const ax = tr.x[i] - tr.x[i - 1], ay = tr.y[i] - tr.y[i - 1];
+    const bx = tr.x[i + 1] - tr.x[i], by = tr.y[i + 1] - tr.y[i];
+    const cr = ax * by - ay * bx;
+    const d = Math.hypot(ax, ay) * Math.hypot(bx, by) * Math.hypot(tr.x[i + 1] - tr.x[i - 1], tr.y[i + 1] - tr.y[i - 1]);
+    tr.k[i] = d > 0 ? (2 * cr) / d : 0;
+  }
+  if (tr.n > 2) {
+    tr.k[0] = tr.k[1];
+    tr.k[tr.n - 1] = tr.k[tr.n - 2];
+  }
+}
 
 // ---------------------------------------------------------------------------
 
-export function build(doc: Doc): Built {
-  const ctx: Ctx = { doc, pieces: [], all: [], st: doc.settings };
-  const geos: StripGeo[] = [];
-  const order = doc.strips.map((s, i) => ({ s, i })).sort((a, b) => (a.s.z ?? 0) - (b.s.z ?? 0) || a.i - b.i);
-  for (const { s } of order) {
-    const g = buildStrip(ctx, s, IDENTITY, 0, 0, 0);
-    geos.push(g);
-  }
-  for (const g of geos) emit(ctx, g);
-  return { pieces: ctx.pieces, geos, all: ctx.all };
-}
-
 interface Ctx {
   doc: Doc;
-  pieces: Piece[];
+  ribbons: Ribbon[];
   all: StripGeo[];
   st: Settings;
-  pending?: Map<StripGeo, { behind: (() => void)[]; front: (() => void)[] }>;
 }
 
-/** Transform a local spine into world coordinates. */
+export function build(doc: Doc): Built {
+  const ctx: Ctx = { doc, ribbons: [], all: [], st: doc.settings };
+  const geos: StripGeo[] = [];
+  doc.strips.forEach((s, i) => {
+    const zBase = (s.z ?? 0) * 12 + i * 0.01;
+    geos.push(buildStrip(ctx, s, IDENTITY, 0, zBase, 0, 0));
+  });
+  return { pieces: ctx.ribbons, geos, all: ctx.all };
+}
+
 function worldSpine(sp: Spine, f: Frame): Spine {
   return sp.map((p) => toWorld(f, p));
 }
 
-export function buildStrip(ctx: Ctx, strip: Strip, frame: Frame, baseFace: 0 | 1, depth: number, rootDist: number, enforceDir?: V): StripGeo {
+function buildStrip(ctx: Ctx, strip: Strip, frame: Frame, th0: number, zBase: number, depth: number, rootDist: number, enforceDir?: V, rootW?: number): StripGeo {
   const st = ctx.st;
   let sp = worldSpine(strip.spine, frame);
   if (enforceDir && sp.length >= 4) {
@@ -185,15 +285,14 @@ export function buildStrip(ctx: Ctx, strip: Strip, frame: Frame, baseFace: 0 | 1
   }
   const dense = spineSamples(sp);
   const Lb = dense.cum[dense.cum.length - 1] || 1;
-  const term = strip.events
-    .filter((e): e is VoluteEvent => e.kind === 'volute' && e.mode === 'terminal')
-    .sort((a, b) => a.t - b.t)[0];
+  const term = strip.events.filter((e): e is VoluteEvent => e.kind === 'volute' && e.mode === 'terminal').sort((a, b) => a.t - b.t)[0];
   let track: Track;
   let spiralStart = -1;
   let spiralMax: { cum: number[]; maxW: number[] } | null = null;
+  const knots = rootW !== undefined && strip.width.length ? [{ t: 0, w: rootW }, ...strip.width.slice(1)] : strip.width;
   if (term && term.t > 0.02 && term.t < 1) {
     const sv = term.t * Lb;
-    const pts: Sample[] = [];
+    let pts: Sample[] = [];
     const cum: number[] = [];
     for (let i = 0; i < dense.pts.length; i++) {
       if (dense.cum[i] > sv) break;
@@ -203,24 +302,22 @@ export function buildStrip(ctx: Ctx, strip: Strip, frame: Frame, baseFace: 0 | 1
     const tmp = resample(dense.pts, dense.cum, STEP);
     const a = tmp.at(sv);
     const eyeW = toWorld(frame, term.eye);
-    const w0 = interpKnots(strip.width, term.t);
+    const w0 = interpKnots(knots, term.t);
     const spi = makeSpiral([a.x, a.y], [a.tx, a.ty], eyeW, term.eyeR, term.turns, Math.max(1.2, w0 * 0.06));
-    const base = sv;
     for (let i = 1; i < spi.samples.length; i++) {
       pts.push(spi.samples[i]);
-      cum.push(base + spi.cum[i]);
+      cum.push(sv + spi.cum[i]);
     }
-    if (pts.length < 2) pts.push(spi.samples[0]), cum.push(base);
-    // make sure the join sample is the exact entry
+    pts = smoothJoin(pts, cum, sv, Math.max(20, w0 * 1.5));
     track = resample(pts, cum, STEP);
+    recomputeK(track);
     spiralStart = sv;
-    spiralMax = { cum: spi.cum.map((c) => c + base), maxW: spi.maxW };
+    spiralMax = { cum: spi.cum.map((c) => c + sv), maxW: spi.maxW };
   } else {
     track = resample(dense.pts, dense.cum, STEP);
   }
-  const n = track.n;
-  const L = track.L;
-  const hL = new Float64Array(n), hR = new Float64Array(n);
+  const n = track.n, L = track.L;
+  const hU = new Float64Array(n), hD = new Float64Array(n), th = new Float64Array(n), z = new Float64Array(n);
   const turnovers = strip.events.filter((e): e is TurnoverEvent => e.kind === 'turnover').sort((a, b) => a.t - b.t);
   const taperSpan = lerp(0.12, 0.45, st.taper);
   const tipW = 1.6;
@@ -229,15 +326,14 @@ export function buildStrip(ctx: Ctx, strip: Strip, frame: Frame, baseFace: 0 | 1
     const s = track.s[i];
     let w: number;
     if (spiralStart >= 0 && s > spiralStart) {
-      const w0 = interpKnots(strip.width, term!.t);
+      const w0 = interpKnots(knots, term!.t);
       const u = (s - spiralStart) / Math.max(1, L - spiralStart);
-      w = w0 * lerp(1, 0.3, Math.pow(u, 0.8));
+      w = w0 * lerp(1, 0.32, Math.pow(u, 0.8));
       while (mi < spiralMax!.cum.length - 2 && spiralMax!.cum[mi + 1] < s) mi++;
       w = Math.min(w, spiralMax!.maxW[mi]);
-      const tail = smooth(0.9, 1, u);
-      w = lerp(w, tipW, tail);
+      w = lerp(w, tipW, smooth(0.9, 1, u));
     } else {
-      w = interpKnots(strip.width, s / Lb);
+      w = interpKnots(knots, s / Lb);
       if (spiralStart < 0) {
         const u = s / L;
         const f = smooth(1 - taperSpan, 1, u);
@@ -245,175 +341,181 @@ export function buildStrip(ctx: Ctx, strip: Strip, frame: Frame, baseFace: 0 | 1
         w = lerp(w, Math.min(w, tipTo), Math.pow(f, 1.3));
       }
     }
+    hU[i] = hD[i] = Math.max(0.6, w / 2);
+    // twist and depth: each turn-over is a gradual half twist; the turned part rises in front
+    let t0 = th0, zz = zBase;
     for (const to of turnovers) {
-      // foreshortening: narrowest just before the crease, recovering beyond it
-      const ds = (s - to.t * Lb + to.length * Lb * 0.12) / Math.max(4, (to.length * Lb) / 2);
-      if (Math.abs(ds) < 1) w *= 1 - 0.45 * Math.pow(Math.cos((ds * Math.PI) / 2), 2);
+      const c = to.t * Lb, half = Math.max(8, (to.length * Lb) / 2);
+      const e = ease(c - half, c + half, s);
+      const turn = ((to as TurnoverEvent & { turn?: number }).turn ?? 180) * (Math.PI / 180);
+      t0 += (to.edge === 'L' ? 1 : -1) * turn * e;
+      zz += LIFT * e;
     }
-    hL[i] = hR[i] = Math.max(0.6, w / 2);
+    th[i] = t0;
+    z[i] = zz;
   }
-  clampToCurvature(track, hL, hR);
-  const creases = turnovers.map((ev) => {
-    const s = ev.t * Lb;
-    const h = hAt(hL, track, s);
-    const sgn = ev.edge === 'L' ? 1 : -1;
-    // the rolling edge's end of the crease lies further along
-    const slope = sgn * Math.tan((clamp(Math.abs(ev.crease), 0, 70) * Math.PI) / 180) * h;
-    return { s, slope, ev };
-  });
-  const g: StripGeo = { strip, frame, track, Lb, hL, hR, spiralStart, creases, baseFace, depth, rootDist, children: [], gaps: [] };
-  ctx.all.push(g);
-  return g;
-}
-
-export function faceAt(g: StripGeo, s: number, v = 0): 0 | 1 {
-  let f = g.baseFace;
-  for (const c of g.creases) if (s > c.s + c.slope * v) f = (1 - f) as 0 | 1;
-  return f;
-}
-
-// ---------------------------------------------------------------------------
-// Emission (draw order)
-
-function emit(ctx: Ctx, g: StripGeo) {
-  const st = ctx.st;
-  const strip = g.strip;
-  const tr = g.track;
-  const L = tr.L;
-  const frontKids: (() => void)[] = [];
-  // children (branches and branching volutes)
-  for (const ev of strip.events) {
-    if (ev.kind === 'branch') {
-      const s = clamp(ev.t * g.Lb, 0, L);
-      const a = tr.at(s);
-      const sg = sideSign(ev.side);
-      const T: V = [a.tx, a.ty];
-      const N = perp(T);
-      const o = P(tr, g.hL, g.hR, s, sg * 0.35);
-      const frame: Frame = { o, ex: T, ey: N };
-      const dir = rot(T, sg * (ev.angle * Math.PI) / 180);
-      const face = faceAt(g, s, sg * 0.35);
-      const child = buildStrip(ctx, { ...ev.child, width: rootWidthed(ev.child.width, ev.rootWidth) }, frame, face, g.depth + 1, g.rootDist + s, dir);
-      child.strip = ev.child; // keep identity for editing
-      g.children.push(child);
-      if (ev.crossing === 'front') frontKids.push(() => emit(ctx, child));
-      else emit(ctx, child);
-    } else if (ev.kind === 'volute' && ev.mode === 'branching') {
-      const pc = branchingVolute(ctx, g, ev);
-      if (pc) {
-        if (ev.crossing === 'front') frontKids.push(() => ctx.pieces.push(...pc));
-        else ctx.pieces.push(...pc);
+  // clusters cut the band's own edge into large lobes that lean toward the tip
+  finishWidths(track, hU, hD, th);
+  const leans = edgeLobes(strip, track, Lb, hU, hD, st);
+  const { hL, hR } = finishWidths(track, hU, hD, th, false);
+  const rolls = strip.events.filter((e): e is RollEvent => e.kind === 'roll');
+  let rollU: Float64Array | undefined, rollD: Float64Array | undefined;
+  if (rolls.length) {
+    rollU = new Float64Array(n);
+    rollD = new Float64Array(n);
+    for (const ro of rolls) {
+      const a = Math.min(ro.t0, ro.t1) * Lb, b = Math.max(ro.t0, ro.t1) * Lb, ramp = Math.max(6, (b - a) * 0.2);
+      const arr = ro.side === 'L' ? rollU : rollD;
+      for (let i = 0; i < n; i++) {
+        const s = track.s[i];
+        const e = Math.min(ease(a, a + ramp, s), 1 - ease(b - ramp, b, s));
+        arr[i] = Math.max(arr[i], clamp(ro.amount, 0, 0.6) * e);
       }
     }
   }
-  // foliage issues from beneath the stem's edge
-  for (const ev of strip.events) if (ev.kind === 'cluster') ctx.pieces.push(...clusterPieces(ctx, g, ev));
-  // own surface, split at creases
-  const bounds: ((v: number) => number)[] = [() => 0];
-  for (const c of g.creases) bounds.push((v: number) => clamp(c.s + c.slope * v, 0, L));
-  bounds.push(() => L);
-  let face = g.baseFace;
-  const lips: Piece[] = [];
-  for (let k = 0; k < bounds.length - 1; k++) {
-    const p: Piece = {
-      id: `${strip.id}:seg${k}`,
-      kind: 'strip',
-      stripId: strip.id,
-      track: tr,
-      hL: g.hL,
-      hR: g.hR,
-      s0: bounds[k],
-      s1: bounds[k + 1],
-      vMin: -1,
-      vMax: 1,
-      face,
-      cup: 0,
-      alphaIn: 0,
-      startShade: k > 0 ? 1 : 0,
-      strokeStart: k > 0 || g.depth > 0 ? k > 0 : true,
-      strokeEnd: true,
-      rootDist: g.rootDist,
-      level: 0,
-      midrib: true,
-      gaps: g.gaps,
-    };
-    if (g.depth > 0 && k === 0) {
-      p.strokeStart = false;
+  const ribbon: Ribbon = {
+    id: strip.id,
+    rollU,
+    rollD,
+    leanU: leans.leanU,
+    leanD: leans.leanD,
+    kind: 'strip',
+    stripId: strip.id,
+    level: 0,
+    track,
+    hU,
+    hD,
+    th,
+    z,
+    hL,
+    hR,
+    gaps: [],
+    strokeStart: depth === 0,
+    strokeEnd: true,
+    rootDist,
+    cup: 0.22,
+    midrib: true,
+    occlude: depth === 0,
+  };
+  const creases = turnovers.map((ev) => ({ s: ev.t * Lb, slope: 0, ev }));
+  const g: StripGeo = { strip, frame, track, Lb, hL, hR, ribbon, spiralStart, creases, baseFace: faceOfTwist(th0), depth, rootDist, children: [], gaps: ribbon.gaps };
+  ctx.all.push(g);
+  ctx.ribbons.push(ribbon);
+  // children and foliage
+  for (const ev of strip.events) {
+    if (ev.kind === 'branch') {
+      const s = clamp(ev.t * Lb, 0, L);
+      const a = track.at(s);
+      const T: V = [a.tx, a.ty];
+      const sg = ev.side === 'L' ? 1 : -1;
+      const d = sideDir(track, th, s, sg); // where that material edge appears
+      const flip = dot(d, perp(T)) * sg >= 0 ? 1 : -1; // the frame mirrors when the parent shows its lining
+      const h = (sg > 0 ? hU : hD)[track.idx(s) | 0] * Math.abs(Math.cos(at(th, track, s)));
+      const o = add([a.x, a.y], mul(d, h * 0.35));
+      const fr: Frame = { o, ex: T, ey: mul(perp(T), flip) };
+      const dir = rot(T, flip * sg * (ev.angle * Math.PI) / 180);
+      const zc = at(z, track, s) + (ev.crossing === 'front' ? 5 : -5);
+      const child = buildStrip(ctx, ev.child, fr, at(th, track, s), zc, depth + 1, rootDist + s, dir, ev.rootWidth);
+      g.children.push(child);
+      // the branch issues from beneath the parent's edge
+      gapFor(ribbon, child.ribbon, s, sg);
+    } else if (ev.kind === 'volute' && ev.mode === 'branching') {
+      branchingVolute(ctx, g, ev);
+    } else if (ev.kind === 'cluster') {
+      clusterRibbons(ctx, g, ev);
     }
-    ctx.pieces.push(p);
-    if (k > 0) {
-      // the lip of the rolling edge, in the face before the crease, passes in front
-      const c = g.creases[k - 1];
-      const ve = c.ev.edge === 'L' ? 1 : -1;
-      const lipLen = Math.max(12, interpKnots(strip.width, c.s / g.Lb) * 1.7);
-      const w = 0.85;
-      lips.push({
-        ...p,
-        id: `${strip.id}:lip${k}`,
-        kind: 'lip',
-        eventId: c.ev.id,
-        vMin: ve > 0 ? 1 - w : -1,
-        vMax: ve > 0 ? 1 : -1 + w,
-        s0: bounds[k],
-        s1: (v: number) => {
-          const q = clamp(1 - Math.abs(v - ve) / w, 0, 1);
-          return clamp(bounds[k](v) + lipLen * Math.pow(q, 0.8), 0, L);
-        },
-        face: (1 - face) as 0 | 1,
-        startShade: 0,
-        strokeStart: true,
-        midrib: false,
-      });
-      for (const l of lips.splice(0)) ctx.pieces.push(l);
-    }
-    face = (1 - face) as 0 | 1;
   }
-  // a terminal volute's inner rim turns over to show a narrow return of the other face
-  if (g.spiralStart >= 0) {
-    const s0 = g.spiralStart + (L - g.spiralStart) * 0.12;
-    const s1 = L - (L - g.spiralStart) * 0.3;
-    const a = tr.at((s0 + s1) / 2);
-    const inner = a.k >= 0 ? 1 : -1;
-    const w = 0.22;
-    const f = faceAt(g, (s0 + s1) / 2);
-    ctx.pieces.push({
-      id: `${strip.id}:rim`,
-      kind: 'rim',
-      stripId: strip.id,
-      track: tr,
-      hL: g.hL,
-      hR: g.hR,
-      s0: () => s0,
-      s1: () => s1,
-      vMin: inner > 0 ? 1 - w : -1,
-      vMax: inner > 0 ? 1 : -1 + w,
-      face: (1 - f) as 0 | 1,
-      cup: 0,
-      alphaIn: 0,
-      startShade: 0,
-      strokeStart: false,
-      strokeEnd: false,
-      rootDist: g.rootDist,
-      level: 0,
-      midrib: false,
-    });
-  }
-  for (const f of frontKids) f();
-  void st;
+  return g;
 }
 
-function rootWidthed(knots: { t: number; w: number }[], rootW: number) {
-  if (!knots.length) return [{ t: 0, w: rootW }];
-  const k = knots.map((x) => ({ ...x }));
-  k[0] = { t: 0, w: rootW };
-  return k;
+/**
+ * Acanthus: within a cluster's interval the cloth grows outward on that side into a few large lobes,
+ * each rising gently to a forward-leaning point and dropping sharply into a deep notch; the lobes
+ * swell toward the middle of the cluster. Smaller teeth cut the lobes' backs.
+ */
+export function edgeLobes(strip: Strip, tr: Track, Lb: number, hU: Float64Array, hD: Float64Array, st: Settings) {
+  let leanU: Float64Array | undefined, leanD: Float64Array | undefined;
+  for (const ev of strip.events) {
+    if (ev.kind !== 'cluster') continue;
+    const s0 = Math.min(ev.t0, ev.t1) * Lb, s1 = Math.max(ev.t0, ev.t1) * Lb;
+    if (s1 - s0 < 8) continue;
+    const R = rng(hash(strip.id + ev.id + 'edge', ev.seed ?? 0));
+    const U = ev.side === 'L';
+    const arr = U ? hU : hD;
+    if (U && !leanU) leanU = new Float64Array(tr.n);
+    if (!U && !leanD) leanD = new Float64Array(tr.n);
+    const lean = U ? leanU! : leanD!;
+    const iMid = clamp(Math.round(tr.idx((s0 + s1) / 2)), 0, tr.n - 1);
+    const h0 = arr[iMid];
+    const n = clamp(Math.round((s1 - s0) / (h0 * 3.2)), 2, 5);
+    const amp = h0 * ev.size * lerp(1.4, 2.8, st.lobeDepth);
+    const cuts: number[] = [0];
+    for (let i = 0; i < n; i++) cuts.push(cuts[i] + R.range(0.8, 1.25));
+    const tot = cuts[n];
+    // the lobes grow from small to large and back: the broad blade, then smaller toward the tip
+    const sizes = Array.from({ length: n }, (_, i) => lerp(0.55, 1, Math.sin((Math.PI * (i + 0.7)) / (n + 0.4))) * R.range(0.85, 1.1));
+    const notch = lerp(0.7, 0.85, st.sharpness);
+    for (let i = 0; i < tr.n; i++) {
+      const s = tr.s[i];
+      if (s <= s0 || s >= s1) continue;
+      const x = ((s - s0) / (s1 - s0)) * tot;
+      let k = 0;
+      while (k < n - 1 && x > cuts[k + 1]) k++;
+      const p = (x - cuts[k]) / (cuts[k + 1] - cuts[k]);
+      // a rounded lobe whose crest sits forward, with deep rounded notches between lobes
+      const q = Math.pow(p, 0.8);
+      const bump = Math.pow(Math.sin(Math.PI * q), 0.5);
+      const shape = 1 - notch + notch * bump;
+      const env = Math.pow(Math.sin(Math.PI * ((s - s0) / (s1 - s0))), 0.4);
+      const extra = amp * sizes[k] * env * shape * smooth(0, 0.12, (s - s0) / (s1 - s0)) * (1 - smooth(0.88, 1, (s - s0) / (s1 - s0)));
+      arr[i] += extra;
+      // the lobe's outer part leans toward the tip, more so near its crest
+      lean[i] = Math.max(lean[i], 0.7 * extra * Math.sin(Math.PI * Math.min(1, p * 1.1)));
+    }
+  }
+  // the lean may not change faster than the cloth advances, or the surface would fold through itself
+  for (const l of [leanU, leanD]) {
+    if (!l) continue;
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 1; i < tr.n; i++) l[i] = Math.min(l[i], l[i - 1] + STEP * 0.45);
+      for (let i = tr.n - 2; i >= 0; i--) l[i] = Math.min(l[i], l[i + 1] + STEP * 0.45);
+    }
+  }
+  // likewise the lobed width, so notches stay rounded rather than stepping
+  for (const h of [hU, hD]) {
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 1; i < tr.n; i++) h[i] = Math.min(h[i], h[i - 1] + STEP * 1.6);
+      for (let i = tr.n - 2; i >= 0; i--) h[i] = Math.min(h[i], h[i + 1] + STEP * 1.6);
+    }
+  }
+  return { leanU, leanD };
+}
+
+/** Leave the parent's edge unstroked where a child emerges from beneath it. */
+function gapFor(parent: Ribbon, child: Ribbon, s: number, materialSide: number) {
+  const ptr = parent.track;
+  const i0 = Math.max(0, Math.floor(ptr.idx(s)) - 60), i1 = Math.min(ptr.n - 1, Math.ceil(ptr.idx(s)) + 60);
+  const region: Region = { track: ptr, hL: parent.hL, hR: parent.hR, i0, i1 };
+  const cross: number[] = [];
+  const ctr = child.track;
+  for (const v of [1, -1]) {
+    for (let i = 0; i < ctr.n; i++) {
+      const q = P(ctr, child.hL, child.hR, ctr.s[i], v);
+      const r = inRegion(region, q);
+      if (!r.inside) {
+        cross.push(r.s);
+        break;
+      }
+    }
+  }
+  if (cross.length === 2) parent.gaps.push({ side: materialSide > 0 ? 1 : -1, s0: Math.min(...cross) - 0.8, s1: Math.max(...cross) + 0.8 });
 }
 
 // ---------------------------------------------------------------------------
 // Branching volute: a coil that springs from the stem while the stem continues
 
-function branchingVolute(_ctx: Ctx, g: StripGeo, ev: VoluteEvent): Piece[] | null {
-  const tr = g.track;
+function branchingVolute(ctx: Ctx, g: StripGeo, ev: VoluteEvent) {
+  const tr = g.track, rb = g.ribbon;
   const s = clamp(ev.t * g.Lb, 0, tr.L);
   const a = tr.at(s);
   const T: V = [a.tx, a.ty];
@@ -425,7 +527,8 @@ function branchingVolute(_ctx: Ctx, g: StripGeo, ev: VoluteEvent): Piece[] | nul
   const spi = makeSpiral(start, dir, eye, ev.eyeR, ev.turns, Math.max(1, w0 * 0.06));
   const ctr = trackFromSamples(spi.samples, STEP);
   const n = ctr.n;
-  const hL = new Float64Array(n), hR = new Float64Array(n);
+  const hU = new Float64Array(n), hD = new Float64Array(n), th = new Float64Array(n), z = new Float64Array(n);
+  const th0 = at(rb.th, tr, s), z0 = at(rb.z, tr, s) + (ev.crossing === 'front' ? 5 : -5);
   let mi = 0;
   for (let i = 0; i < n; i++) {
     const u = ctr.s[i] / ctr.L;
@@ -433,56 +536,18 @@ function branchingVolute(_ctx: Ctx, g: StripGeo, ev: VoluteEvent): Piece[] | nul
     let w = w0 * lerp(1, 0.3, Math.pow(u, 0.8));
     w = Math.min(w, spi.maxW[mi]);
     w = lerp(w, 1.6, smooth(0.9, 1, u));
-    hL[i] = hR[i] = w / 2;
+    hU[i] = hD[i] = w / 2;
+    th[i] = th0;
+    z[i] = z0;
   }
-  clampToCurvature(ctr, hL, hR);
-  const face = faceAt(g, s);
-  const enter = Math.min(ctr.L * 0.3, hAt(g.hL, tr, s) * 1.2);
-  const body: Piece = {
-    id: `${g.strip.id}:${ev.id}`,
-    kind: 'leaf',
-    stripId: g.strip.id,
-    eventId: ev.id,
-    track: ctr,
-    hL,
-    hR,
-    s0: () => 0,
-    s1: () => ctr.L,
-    vMin: -1,
-    vMax: 1,
-    face,
-    cup: 0.3,
-    alphaIn: ev.crossing === 'front' ? enter : 0,
-    startShade: 0,
-    strokeStart: false,
-    strokeEnd: true,
-    exclude: { track: tr, hL: g.hL, hR: g.hR, i0: Math.max(0, Math.floor(tr.idx(s)) - 40), i1: Math.min(tr.n - 1, Math.ceil(tr.idx(s)) + 40) },
-    rootDist: g.rootDist + s,
-    level: 1,
-    midrib: true,
-  };
-  const inner = spi.turnSign;
-  const rim: Piece = {
-    ...body,
-    id: body.id + ':rim',
-    kind: 'rim',
-    vMin: inner > 0 ? 0.7 : -1,
-    vMax: inner > 0 ? 1 : -0.7,
-    s0: () => ctr.L * 0.2,
-    s1: () => ctr.L * 0.94,
-    face: (1 - face) as 0 | 1,
-    alphaIn: 0,
-    strokeStart: false,
-    strokeEnd: false,
-    exclude: undefined,
-    midrib: false,
-  };
-  return [body, rim];
+  const { hL, hR } = finishWidths(ctr, hU, hD, th);
+  const r: Ribbon = { id: `${g.strip.id}:${ev.id}`, kind: 'leaf', stripId: g.strip.id, eventId: ev.id, level: 1, track: ctr, hU, hD, th, z, hL, hR, gaps: [], strokeStart: false, strokeEnd: true, rootDist: g.rootDist + s, cup: 0.25, midrib: true, occlude: false };
+  ctx.ribbons.push(r);
+  gapFor(rb, r, s, side * (Math.cos(th0) >= 0 ? 1 : -1));
 }
 
 // ---------------------------------------------------------------------------
-// Foliage: a cluster bursts into lobes; each lobe splits into unequal, forward-hooking leaflets.
-// Lobes lie beneath their parent; the parent's edge is left unstroked where they issue.
+// Foliage
 
 export interface Region {
   track: Track;
@@ -492,7 +557,6 @@ export interface Region {
   i1: number;
 }
 
-/** Is q inside the region of a track (between its edges), and at what arc length? */
 export function inRegion(ex: Region, q: V): { inside: boolean; s: number } {
   const tr = ex.track;
   let best = Infinity, inside = false, s = 0;
@@ -511,39 +575,34 @@ export function inRegion(ex: Region, q: V): { inside: boolean; s: number } {
 }
 
 interface LeafSpec {
-  parent: Track;
-  pHL: Float64Array;
-  pHR: Float64Array;
-  gaps: Gap[];
+  parent: Ribbon;
   sBase: number;
   baseHalf: number;
-  sg: number; // side of parent (+1 left)
+  /** material side of the parent it grows from */
+  side: number;
   length: number;
   depth: number;
   split: number[];
-  face: 0 | 1;
   level: number;
-  rootDist: number;
-  /** departure angle (radians) from the parent's tangent; random when absent */
   alpha?: number;
-  /** total forward hook (radians); from settings when absent */
-  beta?: number;
-  /** split into a fan of fingers from a shared base instead of a body with attendants */
-  fan?: boolean;
+  /** probability the tip curls over to show the lining */
+  curl: number;
+  /** probability the outer edge rolls over */
+  roll: number;
 }
 
-function clusterPieces(ctx: Ctx, g: StripGeo, ev: ClusterEvent): Piece[] {
+function clusterRibbons(ctx: Ctx, g: StripGeo, ev: ClusterEvent) {
   const st = ctx.st;
-  const tr = g.track;
+  const rb = g.ribbon, tr = rb.track;
   const L = tr.L;
   const s0 = clamp(Math.min(ev.t0, ev.t1) * g.Lb, 0, L), s1 = clamp(Math.max(ev.t0, ev.t1) * g.Lb, 0, L);
-  if (s1 - s0 < 3) return [];
+  if (s1 - s0 < 3) return;
   const R = rng(hash(g.strip.id + ev.id, ev.seed ?? 0));
-  const sg = sideSign(ev.side);
-  const hs = (s: number) => hAt(sg > 0 ? g.hL : g.hR, tr, s);
+  const sg = ev.side === 'L' ? 1 : -1;
+  const hs = (s: number) => hAt(sg > 0 ? rb.hU : rb.hD, tr, s);
   const span = s1 - s0;
-  const wm = Math.max(4, hAt(g.hL, tr, (s0 + s1) / 2) + hAt(g.hR, tr, (s0 + s1) / 2));
-  const nL = clamp(Math.round(span / (wm * 1.5)), 1, 3);
+  const wm = Math.max(4, hAt(rb.hU, tr, (s0 + s1) / 2) + hAt(rb.hD, tr, (s0 + s1) / 2));
+  const nL = clamp(Math.round(span / (wm * 1.6)), 1, 3);
   const wts: number[] = [];
   for (let i = 0; i < nL; i++) wts.push(R.range(0.7, 1.4));
   const tot = wts.reduce((a, b) => a + b, 0);
@@ -555,98 +614,62 @@ function clusterPieces(ctx: Ctx, g: StripGeo, ev: ClusterEvent): Piece[] {
     lobes.push({ sb: acc + part * 0.55, part, rel: i === dominant ? 1 : R.range(0.5, 0.8) });
     acc += part;
   }
-  const out: Piece[] = [];
+  const curl = ev.curl ?? lerp(0.15, 0.75, st.recurve);
+  const roll = ev.roll ?? 0.5;
   for (let i = lobes.length - 1; i >= 0; i--) {
+    if (i !== lobes.length - 1) continue;
     const lb = lobes[i];
     const h = hs(lb.sb);
-    const w = hAt(g.hL, tr, lb.sb) + hAt(g.hR, tr, lb.sb);
-    const length = w * ev.size * lerp(1.8, 4.2, st.lobeDepth) * lb.rel * R.range(0.9, 1.12) + h * 0.5;
-    const base: LeafSpec = {
-      parent: tr,
-      pHL: g.hL,
-      pHR: g.hR,
-      gaps: g.gaps,
+    const w = hAt(rb.hU, tr, lb.sb) + hAt(rb.hD, tr, lb.sb);
+    const length = w * ev.size * lerp(1.6, 3.0, st.lobeDepth) * R.range(0.9, 1.12) + h * 0.8;
+    leaf(ctx, R, {
+      parent: rb,
       sBase: lb.sb,
-      baseHalf: clamp(lb.part * 0.5, h * 0.75, h * 1.3),
-      sg,
+      baseHalf: Math.min(clamp(lb.part * 0.6, h * 1.0, h * 2.0), length * 0.22),
+      side: sg,
       length,
       depth: ev.depth,
       split: ev.split,
-      face: faceAt(g, lb.sb, sg * 0.9),
       level: 1,
-      rootDist: g.rootDist + lb.sb,
-    };
-    out.push(...lobeFan(ctx, R, base, lb.part, g.strip.id, ev.id, `${i}`));
+      curl,
+      roll,
+    }, g.strip.id, ev.id, `${i}`);
   }
-  return out;
 }
 
 /**
- * A lobe splits into 2-4 unequal fingers that fan from a shared base: the rootward fingers leave
- * steeply, the tipward ones lie flatter, and all hook forward. One is the dominant tongue.
+ * A lobe: a ribbon issuing from beneath its parent's edge, leaving at an angle, sweeping out and
+ * hooking forward with steadily increasing curvature. It inherits the parent's twist (so it shows
+ * the same face) and its tip may curl over to show the lining. Smaller lobes split off its flanks.
  */
-function lobeFan(ctx: Ctx, R: Rng, sp: LeafSpec, part: number, stripId: string, eventId: string, path: string): Piece[] {
-  if (sp.depth <= 1 || sp.split.length < 2 || !sp.fan) return leaf(ctx, R, sp, stripId, eventId, path);
-  const k = clamp(sp.split.length, 2, 4);
-  const lead = Math.max(...sp.split.slice(0, k));
-  // the dominant tongue is usually the outermost-but-one or the most tipward finger
-  const order = sp.split.slice(0, k).map((x) => x / lead);
-  const domAt = R.chance(0.5) ? k - 1 : Math.max(0, k - 2);
-  const rels: number[] = [];
-  const rest = order.slice(1).sort((a, b) => b - a);
-  for (let j = 0; j < k; j++) rels.push(j === domAt ? 1 : rest.shift() ?? 0.4);
-  const out: Piece[][] = [];
-  const spread = Math.max(sp.baseHalf * 1.8, part * 0.95);
-  const aHi = (lerp(78, 66, ctx.st.recurve) * Math.PI) / 180;
-  const aLo = (lerp(34, 24, ctx.st.recurve) * Math.PI) / 180;
-  for (let j = 0; j < k; j++) {
-    const f = k === 1 ? 0.5 : j / (k - 1);
-    const rel = rels[j];
-    out.push(
-      leaf(ctx, R, {
-        ...sp,
-        sBase: sp.sBase + (f - 0.5) * spread,
-        baseHalf: Math.max(1, (spread / k) * lerp(0.75, 1.05, rel) + sp.baseHalf * 0.2),
-        length: sp.length * lerp(0.45, 1, rel) * R.range(0.92, 1.08),
-        alpha: lerp(aHi, aLo, f) + R.range(-0.08, 0.08),
-        beta: undefined,
-        depth: sp.depth - 1,
-        split: sp.split.map((x, i) => (i === 0 ? x : x * R.range(0.7, 1.05))),
-      }, stripId, eventId, `${path}.${j}`),
-    );
-  }
-  // tipward fingers lie beneath rootward ones
-  const flat: Piece[] = [];
-  for (let j = out.length - 1; j >= 0; j--) flat.push(...out[j]);
-  return flat;
-}
-
-function leaf(ctx: Ctx, R: Rng, sp: LeafSpec, stripId: string, eventId: string, path: string): Piece[] {
+function leaf(ctx: Ctx, R: Rng, sp: LeafSpec, stripId: string, eventId: string, path: string) {
   const st = ctx.st;
-  // a leaflet too small to read as a distinct finger only crumbles the edge: leave it out
-  if (sp.level > 1 && (sp.length < 9 || sp.baseHalf < 1.6)) return [];
-  const a = sp.parent.at(sp.sBase);
+  if (sp.level > 1 && (sp.length < 14 || sp.baseHalf < 2.2)) return;
+  const ptr = sp.parent.track;
+  const a = ptr.at(sp.sBase);
   const T: V = [a.tx, a.ty];
-  const N = mul(perp(T), sp.sg);
-  const h = sp.sg > 0 ? hAt(sp.pHL, sp.parent, sp.sBase) : hAt(sp.pHR, sp.parent, sp.sBase);
-  const inset = 0.3;
-  const B = add([a.x, a.y], mul(N, h * inset));
-  const alpha = sp.alpha ?? (lerp(38, 62, R.next()) * Math.PI) / 180;
+  const thP = at(sp.parent.th, ptr, sp.sBase);
+  const N = sideDir(ptr, sp.parent.th, sp.sBase, sp.side);
+  const hProj = Math.max(0.5, hAt(sp.side > 0 ? sp.parent.hU : sp.parent.hD, ptr, sp.sBase) * Math.abs(Math.cos(thP)));
+  const B = add([a.x, a.y], mul(N, hProj * 0.3));
+  const alpha = sp.alpha ?? (lerp(sp.level === 1 ? 32 : 24, sp.level === 1 ? 52 : 40, R.next()) * Math.PI) / 180;
   const rsg = dot(rot(T, 0.1), N) > 0 ? 1 : -1;
   const a0 = angleOf(rot(T, rsg * alpha));
   const Ll = Math.max(5, sp.length);
-  const beta = sp.beta ?? (lerp(25, 140, st.recurve) * R.range(0.8, 1.2) * Math.PI) / 180;
-  const turn = -rsg; // hook back toward the direction of travel
-  const p = 2.3;
-  // flame: a slight outward bow, then an accelerating forward hook
+  const beta = (lerp(40, 110, st.recurve) * R.range(0.8, 1.2) * Math.PI) / 180;
+  const turn = -rsg;
+  // a flame: it leans out, then sweeps forward along the stem and hooks at the tip; the
+  // curvature rises and falls smoothly (no corners), concentrated toward the tip
   const kf = (s: number) => {
     const u = s / Ll;
-    return (turn * beta * (p + 1) * Math.pow(u, p)) / Ll - (turn * 0.35 * beta * Math.max(0, 1 - u / 0.35)) / Ll;
+    const out = -0.35 * Math.sin(Math.PI * Math.min(1, u / 0.45)) * (u < 0.45 ? 1 : 0);
+    const hook = Math.pow(Math.sin((Math.PI / 2) * u), 1.4) * 1.6;
+    return (turn * beta * (hook + out)) / Ll;
   };
-  const samples = integrate(B, a0, Ll, kf, Math.max(24, Math.ceil(Ll / 1.5)));
+  const samples = integrate(B, a0, Ll, kf, Math.max(30, Math.ceil(Ll / 1.2)));
   const tr = trackFromSamples(samples, Math.min(STEP, Ll / 30));
   const n = tr.n;
-  const hL = new Float64Array(n), hR = new Float64Array(n);
+  const hU = new Float64Array(n), hD = new Float64Array(n), th = new Float64Array(n), z = new Float64Array(n);
   const sharp = st.sharpness;
   const pp = lerp(2.4, 1.05, sharp), qq = lerp(0.5, 1.25, sharp);
   const env = (u: number) => {
@@ -654,111 +677,111 @@ function leaf(ctx: Ctx, R: Rng, sp: LeafSpec, stripId: string, eventId: string, 
     const x = (u - 0.22) / 0.78;
     return 1.1 * Math.pow(Math.max(0, 1 - Math.pow(x, pp)), qq);
   };
-  const concaveL = turn > 0;
   const asym = R.range(0.1, 0.28);
+  // does the tip curl over? if so, by how much and which way
+  const curls = R.chance(sp.level === 1 ? sp.curl : sp.curl * 0.5);
+  const tipTurn = curls ? R.range(0.8, 1.0) * Math.PI * (R.chance(0.5) ? 1 : -1) : 0;
+  const zBase = at(sp.parent.z, ptr, sp.sBase) - 3 - sp.level;
+  // acanthus: the convex edge is cut into soft scallops between the attendant points
+  const concaveU = turn > 0;
+  // acanthus fingers: the outer edge is cut by deep, sharp notches into rounded fingers that lean
+  // toward the tip; the inner edge gets fewer, shallower cuts
+  const nScal = sp.level === 1 ? R.int(3, 4) : 2;
+  const scalDepth = sp.level === 1 ? R.range(0.62, 0.8) : R.range(0.35, 0.5);
+  const fingers = (u: number, n: number, depth: number) => {
+    if (u < 0.12) return 1;
+    const x = (u - 0.12) / 0.88;
+    const p = (x * n) % 1;
+    // rises gently to a rounded top late in each period, then drops sharply into the notch
+    // each finger swells, then comes to a point that leans forward before the notch
+    const g = Math.pow(Math.sin((Math.PI / 2) * Math.pow(p, 0.9)), 0.55);
+    return 1 - depth * (1 - g) * smooth(0, 0.15, x);
+  };
+  const scal = (u: number) => fingers(u, nScal, scalDepth);
+  const scalIn = (u: number) => fingers(u, Math.max(2, nScal - 1), scalDepth * 0.4);
+  const rolls = sp.level <= 2 && R.chance(sp.roll);
+  const rollAmt = rolls ? R.range(0.22, 0.38) : 0;
+  const rollU = rolls ? new Float64Array(n) : undefined;
+  const rollD = rolls ? new Float64Array(n) : undefined;
   for (let i = 0; i < n; i++) {
     const u = tr.s[i] / tr.L;
     const w = sp.baseHalf * env(u);
-    hL[i] = Math.max(0.3, w * (concaveL ? 1 - asym : 1 + asym));
-    hR[i] = Math.max(0.3, w * (concaveL ? 1 + asym : 1 - asym));
-  }
-  clampToCurvature(tr, hL, hR);
-  const pi0 = sp.parent.idx(sp.sBase);
-  const region: Region = {
-    track: sp.parent,
-    hL: sp.pHL,
-    hR: sp.pHR,
-    i0: Math.max(0, Math.floor(pi0 - (sp.baseHalf * 4 + 10) / STEP)),
-    i1: Math.min(sp.parent.n - 1, Math.ceil(pi0 + (sp.baseHalf * 4 + 10) / STEP)),
-  };
-  // where the lobe's two flanks emerge from under the parent's edge: leave that edge unstroked
-  const cross: number[] = [];
-  for (const v of [1, -1]) {
-    for (let i = 0; i < n; i += 1) {
-      const q = P(tr, hL, hR, tr.s[i], v);
-      const r = inRegion(region, q);
-      if (!r.inside) {
-        cross.push(r.s);
-        break;
-      }
+    const convexW = w * (1 + asym) * scal(u);
+    const concaveW = w * (1 - asym) * scalIn(u);
+    hU[i] = Math.max(0.3, concaveU ? concaveW : convexW);
+    hD[i] = Math.max(0.3, concaveU ? convexW : concaveW);
+    const e = ease(0.3, 0.85, u);
+    th[i] = thP + tipTurn * e;
+    z[i] = zBase + 10 * e * (curls ? 1 : 0);
+    if (rolls) {
+      const rr = rollAmt * ease(0.08, 0.3, u) * (1 - ease(0.75, 0.95, u));
+      // the convex (outer) edge rolls over
+      if (concaveU) rollD![i] = rr;
+      else rollU![i] = rr;
     }
   }
-  if (cross.length === 2) sp.gaps.push({ side: sp.sg > 0 ? 1 : -1, s0: Math.min(...cross) - 0.8, s1: Math.max(...cross) + 0.8 });
-  const gaps: Gap[] = [];
-  const piece: Piece = {
+  const { hL, hR } = finishWidths(tr, hU, hD, th);
+  const r: Ribbon = {
     id: `${stripId}:${eventId}:${path}`,
     kind: 'leaf',
     stripId,
     eventId,
+    level: sp.level,
     track: tr,
+    hU,
+    hD,
+    th,
+    z,
     hL,
     hR,
-    s0: () => 0,
-    s1: () => tr.L,
-    vMin: -1,
-    vMax: 1,
-    face: sp.face,
-    cup: 1,
-    alphaIn: 0,
-    startShade: 0,
+    gaps: [],
     strokeStart: false,
     strokeEnd: true,
-    exclude: region,
-    rootDist: sp.rootDist,
-    level: sp.level,
+    rootDist: sp.parent.rootDist + sp.sBase,
+    cup: 0.35,
     midrib: sp.level <= 1 && Ll > 25,
-    gaps,
+    occlude: false,
+    rollU,
+    rollD,
   };
-  const out: Piece[] = [];
-  if (sp.depth > 1 && sp.split.length > 1) {
-    const parts = sp.split.slice(1);
+  ctx.ribbons.push(r);
+  gapFor(sp.parent, r, sp.sBase, sp.side);
+  // attendants along both flanks (larger on the convex side), each splitting again if depth allows
+  if (sp.depth > 2 && sp.split.length > 1) {
+    const parts = sp.split.slice(1, 3);
     const lead = sp.split[0] || 1;
     const k = parts.length;
-    const convexSg = concaveL ? -1 : 1;
-    const groups: Piece[][] = [];
-    // attendants on the convex flank (the larger cuts) and smaller ones on the concave flank,
-    // staggered so the edge reads as deeply serrated rather than as separate ribbons
+    const convexU = turn > 0 ? -1 : 1;
     const specs: { u: number; side: number; rel: number }[] = [];
-    for (let j = 0; j < k; j++) {
-      const rel = clamp(parts[j] / lead, 0.15, 0.95);
-      specs.push({ u: lerp(0.18, 0.64, k === 1 ? 0.5 : j / (k - 1)) + R.range(-0.04, 0.04), side: convexSg, rel });
+    for (let j = 0; j < k; j++) specs.push({ u: lerp(0.18, 0.64, k === 1 ? 0.5 : j / (k - 1)) + R.range(-0.04, 0.04), side: convexU, rel: clamp(parts[j] / lead, 0.15, 0.95) });
+    const nc = R.chance(0.5) ? 1 : 0;
+    for (let j = 0; j < nc; j++) specs.push({ u: lerp(0.3, 0.7, nc === 1 ? 0.5 : j / (nc - 1)) + R.range(-0.03, 0.03), side: -convexU, rel: clamp((parts[Math.min(parts.length - 1, j + 1)] / lead) * 0.75, 0.12, 0.7) });
+    for (const sp2 of specs) {
+      const sb = sp2.u * tr.L;
+      const lh = hAt(sp2.side > 0 ? hU : hD, tr, sb);
+      const convex = sp2.side === convexU;
+      leaf(ctx, R, {
+        parent: r,
+        sBase: sb,
+        baseHalf: Math.min(Math.max(0.8, lh * lerp(0.8, 1.15, sp2.rel)), Ll * sp2.rel * 0.2),
+        side: sp2.side,
+        length: Ll * sp2.rel * lerp(0.7, 0.92, R.next()) * (convex ? 1 : 0.7),
+        alpha: (lerp(convex ? 30 : 22, convex ? 52 : 38, R.next()) * Math.PI) / 180,
+        depth: sp.depth - 1,
+        split: sp.split.slice(0, Math.max(2, sp.split.length - 1)).map((x, i) => (i === 0 ? x : x * R.range(0.75, 1.1))),
+        level: sp.level + 1,
+        curl: sp.curl,
+        roll: sp.roll * 0.6,
+      }, stripId, eventId, `${path}.${specs.indexOf(sp2)}`);
     }
-    const nc = Math.max(1, k - 1);
-    for (let j = 0; j < nc; j++) {
-      const rel = clamp((parts[Math.min(parts.length - 1, j + 1)] / lead) * 0.75, 0.12, 0.7);
-      specs.push({ u: lerp(0.3, 0.7, nc === 1 ? 0.5 : j / (nc - 1)) + R.range(-0.03, 0.03), side: -convexSg, rel });
-    }
-    specs.sort((x, y) => x.u - y.u);
-    for (let j = 0; j < specs.length; j++) {
-      const { u, side, rel } = specs[j];
-      const sb = u * tr.L;
-      const lh = hAt(side > 0 ? hL : hR, tr, sb);
-      const subSplit = sp.split.slice(0, Math.max(2, sp.split.length - 1)).map((x, i) => (i === 0 ? x : x * R.range(0.75, 1.1)));
-      const convex = side === convexSg;
-      groups.push(
-        leaf(ctx, R, {
-          parent: tr,
-          pHL: hL,
-          pHR: hR,
-          gaps,
-          sBase: sb,
-          baseHalf: Math.max(0.8, lh * lerp(0.8, 1.15, rel)),
-          sg: side,
-          length: Ll * rel * lerp(0.7, 0.92, R.next()) * (convex ? 1 : 0.7),
-          alpha: (lerp(convex ? 50 : 35, convex ? 80 : 55, R.next()) * Math.PI) / 180,
-          depth: sp.depth - 1,
-          split: subSplit,
-          face: sp.face,
-          level: sp.level + 1,
-          rootDist: sp.rootDist,
-        }, stripId, eventId, `${path}.${j}`),
-      );
-    }
-    // tipward attendants furthest back
-    for (let j = groups.length - 1; j >= 0; j--) out.push(...groups[j]);
   }
-  out.push(piece);
-  return out;
+}
+
+/** Visible face of a strip at s (0 outer, 1 lining), for the editor and checks. */
+export function faceAt(g: StripGeo, s: number, _v = 0): 0 | 1 {
+  return faceOfTwist(at(g.ribbon.th, g.track, s));
 }
 
 export { trackFromSamples };
+export type { Sample as _Sample };
+export type { Rng as _Rng, Side as _Side };

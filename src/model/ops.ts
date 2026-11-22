@@ -67,6 +67,8 @@ function mirrorEvent(e: StripEvent, mx: (p: V) => V, keepIds: boolean): StripEve
       return { ...e, id, side: flipSide(e.side), child: mirrorStrip(e.child, keepIds, false) };
     case 'volute':
       return { ...e, id, eye: mx(e.eye), hand: (e.hand * -1) as 1 | -1 };
+    case 'roll':
+      return { ...e, id, side: flipSide(e.side) };
   }
 }
 

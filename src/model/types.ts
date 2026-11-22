@@ -28,6 +28,10 @@ export interface ClusterEvent extends EventBase {
   split: number[];
   /** per-cluster variation seed */
   seed?: number;
+  /** probability that a lobe's tip curls over to show the lining (default from Recurve) */
+  curl?: number;
+  /** probability that a lobe's outer edge rolls over (default 0.5) */
+  roll?: number;
 }
 
 export interface TurnoverEvent extends EventBase {
@@ -37,6 +41,8 @@ export interface TurnoverEvent extends EventBase {
   length: number;
   /** the edge that rolls over and passes in front */
   edge: Side;
+  /** degrees of twist (default 180: a full turn-over to the other face) */
+  turn?: number;
   /** crease obliquity in degrees (0 = straight across) */
   crease: number;
 }
@@ -67,7 +73,17 @@ export interface VoluteEvent extends EventBase {
   crossing?: 'behind' | 'front';
 }
 
-export type StripEvent = ClusterEvent | TurnoverEvent | BranchEvent | VoluteEvent;
+/** One edge of the cloth rolls over toward the viewer, showing a narrow strip of lining along it. */
+export interface RollEvent extends EventBase {
+  kind: 'roll';
+  t0: number;
+  t1: number;
+  side: Side;
+  /** fraction of the half width that is rolled over (0..0.6) */
+  amount: number;
+}
+
+export type StripEvent = ClusterEvent | TurnoverEvent | BranchEvent | VoluteEvent | RollEvent;
 
 export interface Strip {
   id: string;

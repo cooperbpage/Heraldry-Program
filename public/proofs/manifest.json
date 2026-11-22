@@ -1,5 +1,5 @@
 {
- "intro": "Each round renders the hand-authored presets with Playwright and places them beside their references. An independent critic, who has not seen the code, ranks the five worst concrete defects; the top three are fixed before the next round.",
+ "intro": "Newest first. The engine was rebuilt so every plume is a two-faced 3D ribbon of cloth; colour comes only from which face is toward the viewer. Single plumes are recreated from references and reviewed by independent critics who have not seen the code; then five original plumes are reviewed against the references.",
  "rounds": [
   {
    "id": "stages",
@@ -132,6 +132,58 @@
     "Garter: the upper stems cross in an X above the helm and all four end in thin fiddlehead coils; the bands should leave the helm sideways, widen and taper like cloth, show lining at turnovers, and roll into large open eyes with lobes along the curl.",
     "Garter: the white reads as a cauliflower clump between the X arms; it should be two wing-like fans at helm height of long pointed fronds radiating outward in layers.",
     "Both: every leaf is the same flame-shaped ruffled tuft rather than a lobe divided into 3\u20135 serrated, forward-hooking fingers spread along the stem; shading still bands along the length."
+   ]
+  },
+  {
+   "id": "plume-recreate",
+   "title": "Two-faced engine \u00b7 single-plume recreations",
+   "note": "Scores from independent critics (grace / shape, out of 10). Blue lion: r1 3/3, r2 3/2, r3 2/2. Saint Larry: r1 3/3. The latest renders (blue lion r4, Saint Larry r2) have not been scored.",
+   "images": [
+    {
+     "src": "proofs/plumes/recreate-bluelion-r4.png",
+     "caption": "Blue lion (1562), upper-left plume \u00b7 latest"
+    },
+    {
+     "src": "proofs/plumes/recreate-saintlarry-r2.png",
+     "caption": "Saint Larry, right middle plume \u00b7 latest"
+    },
+    {
+     "src": "proofs/plumes/recreate-bluelion-r1.png",
+     "caption": "Blue lion \u00b7 first attempt (3/10, 3/10)"
+    },
+    {
+     "src": "proofs/plumes/recreate-saintlarry-r1.png",
+     "caption": "Saint Larry \u00b7 first attempt (3/10, 3/10)"
+    }
+   ],
+   "critique": [
+    "Too much bare band and too little foliage: the stem should be swallowed by a few broad leaves.",
+    "Lobes read as spikes, slivers or fins stuck on the band rather than broad acanthus leaves grown from its edge, with rounded fingers and deep rounded notches.",
+    "Lining is scattered as many small chips; the references show it in a few continuous places: along a rolled edge, inside a scroll, at a twisted tip.",
+    "Gesture and silhouette differ (crossing straps, vertical spikes) where the references flow in one continuous S.",
+    "Curls end as open hooks; the references close into tight volutes with a small knob of lining."
+   ]
+  },
+  {
+   "id": "plume-inspired",
+   "title": "Two-faced engine \u00b7 five original plumes",
+   "images": [
+    {
+     "src": "proofs/plumes/inspired-five.png",
+     "caption": "Wave crest, Double scroll, Flame fronds, Upright fronds, Falling turn-overs"
+    },
+    {
+     "src": "proofs/plumes/references-sheet.png",
+     "caption": "The references they were judged against"
+    }
+   ],
+   "note": "Critic scores: Wave crest 4, Double scroll 3, Flame fronds 2, Upright fronds 3, Falling turn-overs 4 (out of 10). Closest in spirit: Wave crest.",
+   "critique": [
+    "Lobes are sawtooth or stair-stepped rather than rounded, swelling, teardrop fingers with deep rounded notches.",
+    "Each plume is a single thin strand; the references branch quickly into several decreasing branches, each ending in a scroll or leaf cluster.",
+    "Turn-overs read as colour switches at a seam rather than a visible roll with a curved fold edge.",
+    "Terminals end in claws and spikes instead of spiral volutes.",
+    "Surface shading looks faceted and crumpled rather than smooth painted colour with a midrib following each lobe."
    ]
   }
  ]
