@@ -117,7 +117,8 @@ export function startApp(root: HTMLElement) {
     const r = stage.getBoundingClientRect();
     const aspect = r.width / Math.max(1, r.height);
     // frame the mantling (and the helm with the top of the shield)
-    let x0 = 330, y0 = 300, x1 = 670, y1 = 640;
+    // always include the whole achievement: helm, crest space and the full shield
+    let x0 = FRAME.shield.x - 150, y0 = FRAME.helm.y - 220, x1 = FRAME.shield.x + FRAME.shield.w + 150, y1 = FRAME.shield.y + FRAME.shield.h + 40;
     for (const p of built.pieces) {
       const tr = p.track;
       for (let i = 0; i < tr.n; i += 4) {
@@ -128,7 +129,7 @@ export function startApp(root: HTMLElement) {
         y1 = Math.max(y1, tr.y[i] + h);
       }
     }
-    const m = 20;
+    const m = Math.max(40, 0.08 * Math.max(x1 - x0, y1 - y0));
     let cw = x1 - x0 + 2 * m, ch = y1 - y0 + 2 * m;
     if (cw / ch > aspect) ch = cw / aspect;
     else cw = ch * aspect;

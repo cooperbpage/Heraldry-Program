@@ -1,0 +1,17 @@
+{
+ "title": "Black-ground acanthus mantling, one face only (viewer's left half labelled; the right half is a free mirror)",
+ "crop": [0, 95, 804, 890], "scale": 1.9, "legend_w": 250, "legend_chars": 56, "red_fill": "#d42b2b", "stroke": 1.3,
+ "components": [
+  {"n": 1, "name": "Upright frond beside the crest", "at": [232, 150], "path": "M236,262 C232,215 212,175 186,148 C170,132 158,124 148,118", "desc": "Rises from behind the wreath and leans out, its tip hooking up and to the left. Lobes come off the outer (left) edge only, each one curving up toward the tip."},
+  {"n": 2, "name": "Hanging hook leaf", "at": [228, 292], "path": "M226,238 C198,240 176,262 170,292 C167,312 174,326 184,332", "desc": "A short stem bends out and down and finishes in a hook that turns back in. Its lobes sit on the outside of the bend, which makes the bend read as fuller."},
+  {"n": 3, "name": "Outer palmate frond", "at": [20, 160], "path": "M118,352 C96,318 80,270 62,232 C52,210 50,190 56,170", "desc": "The biggest single leaf. One long, gently S-shaped midrib runs up and out; broad lobes fan off both sides and get smaller toward the tip; the lower lobes droop and their tips curl inward."},
+  {"n": 4, "name": "Small hook leaf", "at": [150, 312], "path": "M160,388 C138,372 120,348 122,320", "desc": "A small leaf filling the gap between frond 3 and the middle frond: same gesture at a smaller scale, which is how the design fills space without crowding."},
+  {"n": 5, "name": "Middle frond from the helm", "at": [292, 380], "path": "M292,412 C240,420 190,426 140,416 C100,408 72,414 54,428", "desc": "Leaves the helm almost level and runs out to the left. Lobes curl up along its top edge and droop along its bottom edge; the tips nearest the helm are the largest."},
+  {"n": 6, "name": "Small lower leaf", "at": [182, 482], "path": "M166,560 C142,540 126,515 120,490", "desc": "A detached small leaf below the middle frond, pointing back up toward it; it balances the hanging lobes above."},
+  {"n": 7, "name": "Flame leaf beside the shield", "at": [150, 600], "path": "M60,760 C90,720 126,680 128,640 C130,610 104,590 62,578", "desc": "Rises from behind the collar like a flame: a broad body that sweeps up and curls over to a sharp tip that points back the way it came."},
+  {"n": 8, "name": "Lower double curl", "at": [150, 820], "path": "M64,770 C30,790 18,830 40,862 M64,770 C100,780 122,812 110,850", "desc": "Below the flame the cloth splits into two curls that turn away from each other, like the two halves of a heart."},
+  {"n": 9, "name": "Drop", "at": [176, 940], "desc": "A last small tear-shaped lobe, separated from the rest, closing the composition at the bottom."}
+ ],
+ "key": [["- ->", "midrib of each frond, root to tip"]],
+ "notes": ["What makes these shapes natural: every frond is one smooth midrib (a C or a gentle S, never a zigzag); lobes sit on the outside of each bend and get smaller toward the tip; every lobe tip curves toward the frond's own tip; and fronds of very different sizes nest into one another's gaps.", "Fills: red only (the gold drops and black ground are left out). Outlines traced from the painting and fitted with smooth curves; numbering and midribs are hand-placed."]
+}

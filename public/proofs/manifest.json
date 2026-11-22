@@ -185,6 +185,29 @@
     "Terminals end in claws and spikes instead of spiral volutes.",
     "Surface shading looks faceted and crumpled rather than smooth painted colour with a midrib following each lobe."
    ]
+  },
+  {
+   "id": "tracings",
+   "title": "Traced references, with components annotated",
+   "note": "Outlines traced from the paintings (colour-segmented at 4x, then fitted with smooth B\u00e9zier curves that keep lobe tips sharp). No bends or shapes were added. Red = outer face; white = ermine lining. Numbered component paths and descriptions are hand-placed. SVG files are in /tracings/.",
+   "images": [
+    {
+     "src": "tracings/garter-annotated.png",
+     "caption": "Garter \u00b7 annotated"
+    },
+    {
+     "src": "tracings/garter-trace.png",
+     "caption": "Garter \u00b7 clean trace"
+    },
+    {
+     "src": "tracings/blackground-annotated.png",
+     "caption": "Black-ground acanthus \u00b7 annotated"
+    },
+    {
+     "src": "tracings/blackground-trace.png",
+     "caption": "Black-ground acanthus \u00b7 clean trace"
+    }
+   ]
   }
  ]
 }

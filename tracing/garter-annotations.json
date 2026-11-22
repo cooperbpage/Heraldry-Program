@@ -1,0 +1,20 @@
+{
+ "title": "Garter mantling, viewer's left half (the right half mirrors it)",
+ "crop": [30, 10, 448, 230], "scale": 1.0, "legend_w": 240, "legend_chars": 58,
+ "components": [
+  {"n": 1, "name": "Root behind the helm", "at": [214, 120], "desc": "All the cloth on this side issues from one place behind the helm and wreath; everything below is one continuous mantle."},
+  {"n": 2, "name": "Upper roll (outer face)", "at": [150, 80], "path": "M212,106 C190,94 160,84 130,82 C105,80 86,86 76,100 C66,114 70,128 84,134", "desc": "The top edge of the cloth rolls over, so the red outer face shows as a broad band arching up and out over the white lining, then down the outside as a big C."},
+  {"n": 3, "name": "Rising stem, lining on its inner side", "at": [112, 64], "path": "M100,84 C96,70 95,58 98,46", "tags": [[104, 72, "T"]], "desc": "From the crown of the arch a branch rises; the grey lining shows along its inner edge where the cloth turns (T)."},
+  {"n": 4, "name": "Top acanthus leaf", "at": [80, 44], "desc": "The branch opens into a leaf whose lobes fan up and out to the left, each tip hooking forward."},
+  {"n": 5, "name": "Top scroll", "at": [168, 40], "path": "M104,34 C125,22 155,28 160,48 C163,62 150,70 140,64", "tags": [[140, 48, "E"]], "desc": "A second branch curls right and back on itself into an open hook; the open space it encloses (E) is part of the design."},
+  {"n": 6, "name": "Outer leaf", "at": [48, 98], "desc": "Where the big C turns down, lobes fan outward (to the left) from its outer edge: a lobe cluster at the turn."},
+  {"n": 7, "name": "Lower roll into a volute", "at": [150, 150], "path": "M84,134 C100,126 128,124 138,140 C146,154 134,164 118,160 C106,157 104,148 112,146", "tags": [[112, 151, "E"], [126, 146, "T"]], "desc": "The C continues inward and rolls into a scroll; the lining shows inside the curl (T) around an open eye (E)."},
+  {"n": 8, "name": "Leaf beside the helm (outer face)", "at": [196, 152], "path": "M224,126 C200,124 175,128 150,134", "desc": "Directly beside the helm the cloth's outer face spreads as a broad red leaf, its lobed lower edge overlapping the lower lining fan."},
+  {"n": 9, "name": "Bottom scroll and lobes", "at": [70, 186], "path": "M92,160 C80,172 86,192 104,194 C120,195 126,182 116,176", "tags": [[106, 184, "E"]], "desc": "Below, the cloth curls into a smaller S-scroll with its own eye (E), throwing lobes out to the left and down."},
+  {"n": 10, "name": "Upper lining fan (ermine)", "at": [150, 112], "desc": "Inside the upper roll the lining face of the cloth shows as a fan of feather-like folds radiating out from the helm, with serrated tips."},
+  {"n": 11, "name": "Lower lining fan", "at": [182, 182], "desc": "Beneath the leaf by the helm, more lining folds radiate down and outward behind the garter."},
+  {"n": 12, "name": "Tall lining fold", "at": [178, 72], "desc": "One lining fold stands up behind the upper roll, its tip divided like a leaf."}
+ ],
+ "key": [["T", "turn-over: the cloth rolls so the other face shows"], ["E", "open eye enclosed by a scroll"], ["- ->", "path of a stem or roll, root to tip"]],
+ "notes": ["Fills: red = outer face, white = ermine lining (spots omitted). Outlines were traced from the painting and fitted with smooth curves; numbering and paths are hand-placed."]
+}

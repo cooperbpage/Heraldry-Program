@@ -78,3 +78,19 @@ button.toggle.on { background: #e8efe0; border-color: #9fb48a; }
 .proofs figcaption { font-size: 14px; color: var(--muted); margin-top: 4px; }
 .proofs h2 { font-weight: 400; font-style: italic; border-bottom: 1px solid var(--rule); margin-top: 28px; }
 .proofs ol li { margin-bottom: 4px; }
+
+/* compact controls with a precise pointer (mouse/trackpad); touch keeps 44px targets */
+@media (pointer: fine) {
+  button, .btn { min-height: 30px; min-width: 30px; padding: 0 10px; border-radius: 7px; font-size: 13px; }
+  .ctx { min-height: 34px; }
+  .ctx .hint { font-size: 13px; }
+  .tag { font-size: 13px; }
+  .sl { font-size: 12px; min-width: 160px; }
+  .sl input[type=range] { height: 26px; }
+  .actions button[data-a="undo"], .actions button[data-a="redo"] { font-size: 16px; }
+  .masthead { min-height: 38px; }
+  .masthead h1 { font-size: 1.05rem; }
+  .navlink { min-height: 30px; }
+  .panel { padding: 2px 8px 6px; }
+  .row { gap: 4px; padding: 2px 0; }
+}

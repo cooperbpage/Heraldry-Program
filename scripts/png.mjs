@@ -13,7 +13,7 @@ for (const j of jobs) {
   if (j.src.endsWith('.svg')) {
     let svg = readFileSync(j.src, 'utf8');
     if (process.env.CROP) svg = svg.replace(/viewBox="[^"]*"/, `viewBox="${process.env.CROP}"`);
-    await page.setContent(`<html><body style="margin:0">${svg.replace('width="1000" height="1000"', `width="${j.w}" height="${j.h}"`)}</body></html>`);
+    await page.setContent(`<html><body style="margin:0;width:${j.w}px;height:${j.h}px">${svg.replace('width="1000" height="1000"', `width="${j.w}" height="${j.h}"`)}</body></html>`);
   } else await page.goto('file://' + resolve(j.src));
   await page.waitForTimeout(50);
   await page.screenshot({ path: j.out, fullPage: true });
