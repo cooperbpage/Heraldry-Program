@@ -1,0 +1,4 @@
+import"./style-CHp2ordv.js";const n="/Heraldry-Program/",a=document.getElementById("proofs");fetch(`${n}proofs/manifest.json`,{cache:"no-store"}).then(o=>o.json()).then(o=>{const t=e=>e.replace(/&/g,"&amp;").replace(/</g,"&lt;");a.innerHTML=(o.intro?`<p>${t(o.intro)}</p>`:"")+o.rounds.slice().reverse().map(e=>{var s,c;return`<section><h2>${t(e.title)}</h2>${e.note?`<p>${t(e.note)}</p>`:""}
+${e.images.map(i=>`<figure><a href="${n}${i.src}"><img loading="lazy" src="${n}${i.src}" alt="${t(i.caption)}"></a><figcaption>${t(i.caption)}</figcaption></figure>`).join("")}
+${(s=e.critique)!=null&&s.length?`<h3>Critic’s five worst defects (ranked)</h3><ol>${e.critique.map(i=>`<li>${t(i)}</li>`).join("")}</ol>`:""}
+${(c=e.fixes)!=null&&c.length?`<h3>Fixed after this review</h3><ul>${e.fixes.map(i=>`<li>${t(i)}</li>`).join("")}</ul>`:""}</section>`}).join("")}).catch(()=>{a.innerHTML="<p>No proofs yet.</p>"});
