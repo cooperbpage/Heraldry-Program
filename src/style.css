@@ -94,3 +94,17 @@ button.toggle.on { background: #e8efe0; border-color: #9fb48a; }
   .panel { padding: 2px 8px 6px; }
   .row { gap: 4px; padding: 2px 0; }
 }
+
+/* leaf lab */
+body.lab { min-height: 100dvh; }
+.lab .masthead nav { display: flex; gap: 12px; }
+#lab { display: flex; flex-direction: column; gap: 8px; padding: 8px 12px 24px; max-width: 1100px; margin: 0 auto; }
+@media (min-width: 900px) { #lab { flex-direction: row; align-items: flex-start; } .lab-stage { position: sticky; top: 8px; flex: 0 0 440px; } }
+.lab-stage svg { width: 100%; height: auto; display: block; border: 1px solid var(--rule); background: #f6f1e6; }
+.lab-panel { flex: 1; min-width: 0; }
+.lab-panel .sl { display: grid; grid-template-columns: 9.5em 1fr 3em; gap: 8px; min-width: 0; margin: 2px 0; }
+.lab-panel output { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); }
+.lab-panel h3 { font-weight: 400; font-variant: small-caps; letter-spacing: 0.05em; margin: 14px 0 4px; color: var(--muted); }
+.lab-panel .sel { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.lab-panel select { font: inherit; font-size: 14px; min-height: 36px; border-radius: 8px; border: 1px solid var(--rule); background: #fffdf8; }
+#sweep { width: 100%; height: auto; border: 1px solid var(--rule); margin-top: 6px; }

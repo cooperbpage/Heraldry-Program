@@ -9,6 +9,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         proofs: resolve(__dirname, 'proofs.html'),
+        leaf: resolve(__dirname, 'leaf.html'),
       },
     },
   },

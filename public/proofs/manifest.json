@@ -208,6 +208,21 @@
      "caption": "Black-ground acanthus \u00b7 clean trace"
     }
    ]
+  },
+  {
+   "id": "leaves",
+   "title": "Flat acanthus leaf repertoire (try it live in the Leaf Lab)",
+   "note": "Flat leaves built the way the drawing manuals construct acanthus: midrib, stations crowding toward the tip, lobes as fans of fingers, eyes at the bottom of the slits between lobes, a terminal lobe and a stem. Every part is a parameter. The warping stage (bending these into flowing mantling) comes next.",
+   "images": [
+    {
+     "src": "proofs/leaves/repertoire.png",
+     "caption": "Repertoire (blue dots: eyes)"
+    },
+    {
+     "src": "proofs/leaves/transforms.png",
+     "caption": "One leaf transformed parameter by parameter"
+    }
+   ]
   }
  ]
 }
